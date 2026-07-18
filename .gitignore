@@ -1,0 +1,46 @@
+# Build artifacts
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+build/
+
+# Web related
+.web/
+
+# Database / Storage
+*.db
+
+# Symbolication folder
+app.*.symbols
+
+# Obfuscation map
+app.*.map.json
+
+# Android Studio overrides
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Xcode overrides
+.docsets/
+DerivedData/
+Build/
+Subscription.plist
+*.moved-aside
+*.xcworkspace
+*.xcscheme
+*.xsynclog
+*.xcuserstate
+*.xcodeplayged
+
+# VS Code overrides
+.vscode/
+
+# Env secrets
+.env
+.env.production
+.env.development
+.env.local
