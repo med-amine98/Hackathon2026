@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const response = await axios.get(`/api/claims`);  // Without the base URL
+// Backend runs via the root docker-compose (assurex-api service, host port
+// 8002) — override with VITE_API_BASE in .env for a different setup.
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8002/api';
 
 const ClaimsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();

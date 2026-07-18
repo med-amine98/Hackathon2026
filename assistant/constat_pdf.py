@@ -85,11 +85,29 @@ _VEHICLE_FIELD_XY = {
     "insured_address": (115, 422),
     "insured_phone": (170, 443),
     "vehicle_make_model": (140, 478),
-    "plate_number": (200, 498),
+    # x was 200 — measured against a coordinate grid render (see git history
+    # around the plate/phone overflow fix), that left only ~20-29pt of real
+    # width before the circumstances checkbox column (Vehicle A) or the
+    # page's own right edge (Vehicle B, via _B_OFFSET_X), while a real plate
+    # number needs ~50-55pt at this font size — it was overflowing into the
+    # checkbox column for A and off the page entirely for B. 160 lines up
+    # with where the "N° d'immatriculation" label's underline actually
+    # starts, giving ~55-58pt on both sides. See _draw_text_fit, used for
+    # this field in _fill_vehicle, for the belt-and-suspenders fix (shrinks
+    # to fit rather than trusting the measurement alone to always be enough).
+    "plate_number": (160, 498),
     "sens_suivi": (145, 513),   # compass heading, computed
     "venant_de": (120, 530),
     "allant_a": (115, 550),
 }
+
+# Hard boundaries plate_number/insured_phone must not cross — see
+# _draw_text_fit. Vehicle A's fields are bounded on the right by the
+# circumstances checkbox column; Vehicle B's mirror position (_B_OFFSET_X)
+# lands close enough to the page's own right edge that ITS real boundary is
+# the page edge instead, not the (already-passed) checkbox column.
+_TEXT_RIGHT_BOUND_A = 218.0
+_TEXT_RIGHT_BOUND_B = 590.0  # page is 595pt wide (see TEMPLATE_PATH), 5pt margin
 
 # dégâts apparents / observations boxes are positioned differently for A vs B
 # (B isn't a simple +375 shift down here), so given explicitly per vehicle.
@@ -136,11 +154,52 @@ def _draw_text(page: "fitz.Page", xy: tuple[float, float], text: str, size: floa
         return
     text = str(text)
     if max_width:
-        # crude wrap: fitz has no built-in wrap for insert_text, so just
+        # Crude wrap: fitz has no built-in wrap for insert_text, so just
         # truncate with an ellipsis rather than overrun into the next field.
+        # approx_chars is a rough estimate (assumes ~0.5*size per char),
+        # not a real measurement — fine for free-text fields (description,
+        # observations, addresses) where losing the tail end to "…" is a
+        # minor readability issue. NOT fine for an identifier that must be
+        # exact (plate number, phone) — see _draw_text_fit below for those.
         approx_chars = int(max_width / (size * 0.5))
         if len(text) > approx_chars:
             text = text[: approx_chars - 1] + "…"
+    page.insert_text(xy, text, fontsize=size, fontname=_FONT, color=(0, 0, 0.55))
+
+
+def _draw_text_fit(
+    page: "fitz.Page",
+    xy: tuple[float, float],
+    text: str,
+    max_width: float,
+    base_size: float = _FONT_SIZE,
+    min_size: float = 5.5,
+):
+    """
+    Like _draw_text, but for values that must never be silently truncated —
+    a plate number or phone number cut off with "…" is actively wrong, not
+    just untidy. Measures the ACTUAL rendered width with fitz.get_text_length
+    (not _draw_text's rough per-character estimate) and shrinks the font in
+    0.5pt steps until it genuinely fits max_width, down to min_size. Falls
+    back to _draw_text's ellipsis truncation only if it still doesn't fit at
+    min_size — which some real values may hit (a long international number
+    with a country code) but should be rare, and is still better than
+    silently overflowing into the next field/off the page, which is the bug
+    this replaces (see constat_pdf.py's plate_number/insured_phone fields —
+    both are positioned right up against a fixed boundary, either the
+    circumstances checkbox column for Vehicle A or the page's outer edge for
+    Vehicle B, with much less real width available than a generic max_width
+    assumption gave credit for).
+    """
+    if not text:
+        return
+    text = str(text)
+    size = base_size
+    while size > min_size and fitz.get_text_length(text, fontname=_FONT, fontsize=size) > max_width:
+        size -= 0.5
+    if fitz.get_text_length(text, fontname=_FONT, fontsize=size) > max_width:
+        _draw_text(page, xy, text, size=size, max_width=max_width)
+        return
     page.insert_text(xy, text, fontsize=size, fontname=_FONT, color=(0, 0, 0.55))
 
 
@@ -220,14 +279,72 @@ def _draw_car(page: "fitz.Page", cx: float, cy: float, heading_deg: float | None
         label, fontsize=8, fontname=_FONT, color=color,
     )
 
+    # A direct collision (rear-end, head-on) legitimately puts both
+    # vehicles' damage marks at the exact same point — physically correct,
+    # but two identical filled red dots stacked on each other just look
+    # like one dot, which is worse than showing nothing. A's mark stays a
+    # small filled dot; B's is a slightly larger open ring in the same red,
+    # so a coincident mark reads as "dot inside a ring" (both vehicles'
+    # damage, still one point) instead of silently losing one of them.
+    dot_fill = (0.75, 0, 0) if label == "A" else None
+    dot_radius = 2.2 if label == "A" else 3.2
     for zone in impact_zones:
         key = _IMPACT_ZONE_POSITION.get(zone)
         if key and key in corners:
             x, y = corners[key]
-            page.draw_circle((x, y), 2.2, color=(0.75, 0, 0), fill=(0.75, 0, 0))
+            page.draw_circle((x, y), dot_radius, color=(0.75, 0, 0), fill=dot_fill, width=1.1)
 
 
-def _draw_croquis(page: "fitz.Page", vehicle_a, vehicle_b, route_a: dict | None,
+# Keywords that mean "roundabout" across the languages this chat actually
+# sees (assistant/language.py detects ar/fr/en) — checked against everything
+# the client typed in free text, not just one field, since a roundabout is
+# as likely to come up describing the location ("au rond-point de la Marsa")
+# as describing what happened (the narrative/evidence trail).
+_ROUNDABOUT_KEYWORDS = ("rond-point", "rond point", "rondpoint", "giratoire", "roundabout", "دوار")
+
+
+def _mentions_roundabout(claim, vehicle_a, vehicle_b) -> bool:
+    texts = [
+        claim.location or "",
+        vehicle_a.narrative or "", vehicle_b.narrative or "",
+        vehicle_a.damage_description or "", vehicle_b.damage_description or "",
+        vehicle_a.observations or "", vehicle_b.observations or "",
+        " ".join(vehicle_a.evidence), " ".join(vehicle_b.evidence),
+    ]
+    blob = " ".join(texts).lower()
+    return any(kw in blob for kw in _ROUNDABOUT_KEYWORDS)
+
+
+def _draw_roundabout(page: "fitz.Page", cx: float, cy: float, radius: float):
+    """
+    The circle + 4 short entry/exit tick marks that stand in for a
+    roundabout in the croquis — drawn whenever the conversation actually
+    mentioned one (see _mentions_roundabout), instead of leaving the reader
+    to infer it from two car icons alone. Two small curved-flow arrows on
+    the circle hint the direction of travel around it (counter-clockwise,
+    correct for Tunisia/right-hand-traffic countries — this whole app
+    already assumes that side of the road, see geometry.py).
+    """
+    page.draw_circle((cx, cy), radius, color=(0.35, 0.35, 0.35), width=1.2)
+    page.insert_text((cx - 18, cy - radius - 4), "rond-point", fontsize=6, fontname=_FONT, color=(0.35, 0.35, 0.35))
+
+    # Two short tangential arrow ticks on the circle showing counter-
+    # clockwise flow — just enough to read as "this is a roundabout, traffic
+    # circulates this way," not a full lane diagram.
+    for angle_deg in (20, 200):
+        angle = math.radians(angle_deg)
+        px, py = cx + radius * math.cos(angle), cy + radius * math.sin(angle)
+        # tangent direction for counter-clockwise travel at this point
+        tdx, tdy = math.sin(angle), -math.cos(angle)
+        tip = (px + tdx * 7, py + tdy * 7)
+        page.draw_line((px, py), tip, color=(0.35, 0.35, 0.35), width=1.0)
+        ndx, ndy = -tdy, tdx
+        for sign in (-1, 1):
+            wing = (tip[0] - tdx * 3 + ndx * 2 * sign, tip[1] - tdy * 3 + ndy * 2 * sign)
+            page.draw_line(tip, wing, color=(0.35, 0.35, 0.35), width=1.0)
+
+
+def _draw_croquis(page: "fitz.Page", claim, vehicle_a, vehicle_b, route_a: dict | None,
                    route_b: dict | None, relative_direction: str | None):
     """
     Auto-generated top-down schematic in the "13. croquis" box, built
@@ -258,12 +375,84 @@ def _draw_croquis(page: "fitz.Page", vehicle_a, vehicle_b, route_a: dict | None,
     """
     box = _CROQUIS_BOX
     cy = (box.y0 + box.y1) / 2
+    cx_mid = (box.x0 + box.x1) / 2
     bearing_a = (route_a or {}).get("bearing_deg")
     bearing_b = (route_b or {}).get("bearing_deg")
     parked_a = "a" in vehicle_a.circumstances
     parked_b = "a" in vehicle_b.circumstances
 
-    if relative_direction == "same_direction" and bearing_a is not None:
+    if _mentions_roundabout(claim, vehicle_a, vehicle_b):
+        # Takes priority over the same/opposite/crossing layouts below — a
+        # roundabout is a visually distinct, more informative picture than
+        # generic "side by side" once we know that's what it was, and the
+        # heading-based layouts below don't have a way to represent a
+        # circular junction anyway (they're built around a single shared
+        # straight line).
+        radius = min(box.x1 - box.x0, box.y1 - box.y0) * 0.22
+        _draw_roundabout(page, cx_mid, cy, radius)
+        # Each car sits just outside the circle, on the approach it
+        # actually came from if we know a heading, otherwise a plain
+        # opposite-sides default — still carries its own directional arrow
+        # via _draw_car (the "indiquer par une flèche" mark from the
+        # printed form's own instructions), just anchored at the roundabout
+        # edge instead of a straight shared line.
+        #
+        # Position is computed as an ANGLE around the circle (not two
+        # independent heading vectors) specifically so A and B's angles can
+        # be checked against each other and forced apart — computing each
+        # car's spot purely from its own heading independently (the first
+        # version of this) let them land on the exact same point whenever
+        # one heading (or its 90°/270° "unknown" fallback) happened to
+        # match the other's, e.g. one vehicle genuinely heading east and
+        # the other's heading unknown — both are visually distinct
+        # accidents, but rendered identically on top of each other, which
+        # is exactly the "not clean" failure this guards against.
+        gap = radius + _CAR_LEN * 0.65
+
+        def approach_angle(heading_deg: float | None, default_deg: float) -> float:
+            # Angle (radians, standard math convention) of the point the car
+            # sits at, given the compass heading it was travelling on — the
+            # car sits on the side it approached FROM, i.e. opposite its
+            # direction of travel, then bearing is converted from
+            # "0=north, clockwise" to plain math angle.
+            b = heading_deg if heading_deg is not None else default_deg
+            return math.radians(90 - b) + math.pi  # +pi: FROM side, not travelling-to side
+
+        a_heading = None if parked_a else bearing_a
+        b_heading = None if parked_b else bearing_b
+        angle_a = approach_angle(a_heading, default_deg=180.0)  # default: from the south
+        angle_b = approach_angle(b_heading, default_deg=0.0)    # default: from the north
+
+        # Guarantee real separation regardless of what the headings said —
+        # if they'd land within min_sep of each other on the circle, fan
+        # both apart symmetrically around their shared midpoint instead of
+        # flipping one 180°. A hard 180° flip used to move a car's
+        # *position* to the opposite side of the circle while its
+        # directional arrow (_draw_car) kept pointing along its real,
+        # unchanged heading — so a car flipped to the east side could end
+        # up drawn there with an arrow pointing further east, i.e. away
+        # from the roundabout instead of into it. Fanning both angles out
+        # from their common midpoint keeps each car on (approximately) the
+        # side its real heading actually approaches from, so the arrow
+        # still reads as "entering the roundabout" — it only nudges the
+        # two apart just enough to stop the icons/labels from overlapping.
+        # Still honest about "unknown," since a missing heading was already
+        # forced to a distinct default above; this only catches two REAL
+        # headings that happen to roughly agree, or a real heading
+        # colliding with the other vehicle's default.
+        min_sep = math.radians(70)
+        d_signed = ((angle_b - angle_a + math.pi) % (2 * math.pi)) - math.pi  # (-pi, pi]
+        if abs(d_signed) < min_sep:
+            mid = angle_a + d_signed / 2
+            sign = 1.0 if d_signed >= 0 else -1.0
+            angle_a = mid - sign * min_sep / 2
+            angle_b = mid + sign * min_sep / 2
+
+        a_pt = (cx_mid + gap * math.cos(angle_a), cy - gap * math.sin(angle_a))
+        b_pt = (cx_mid + gap * math.cos(angle_b), cy - gap * math.sin(angle_b))
+        _draw_car(page, *a_pt, a_heading, "A", vehicle_a.impact_zones, (0.55, 0.45, 0))
+        _draw_car(page, *b_pt, b_heading, "B", vehicle_b.impact_zones, (0, 0.35, 0.45))
+    elif relative_direction == "same_direction" and bearing_a is not None:
         # One behind the other along the shared heading: whichever vehicle
         # was hit at the rear goes in front (it's the one that got struck
         # from behind), the other goes behind it. Falls back to A-behind-B
@@ -306,6 +495,7 @@ def _draw_croquis(page: "fitz.Page", vehicle_a, vehicle_b, route_a: dict | None,
 
 def _fill_vehicle(page: "fitz.Page", label: str, v, route: dict | None):
     off = 0 if label == "A" else _B_OFFSET_X
+    right_bound = _TEXT_RIGHT_BOUND_A if label == "A" else _TEXT_RIGHT_BOUND_B
 
     def pt(name):
         x, y = _VEHICLE_FIELD_XY[name]
@@ -324,10 +514,18 @@ def _fill_vehicle(page: "fitz.Page", label: str, v, route: dict | None):
     _draw_text(page, pt("insured_last_name"), insured_last or "", max_width=200)
     _draw_text(page, pt("insured_first_name"), insured_first or "", max_width=200)
     _draw_text(page, pt("insured_address"), v.insured_address or v.driver_address or "", max_width=220)
-    _draw_text(page, pt("insured_phone"), v.insured_phone or "", max_width=180)
+    # Phone/plate must never be silently truncated with "…" — a cut-off
+    # identifier is wrong, not just untidy — so these two use _draw_text_fit
+    # (shrinks the font to actually fit right_bound) instead of the plain
+    # _draw_text used above, whose max_width is just a rough guess. See
+    # _TEXT_RIGHT_BOUND_A/_B's docstring for why A and B need different
+    # bounds here specifically (checkbox column vs. page edge).
+    phone_xy = pt("insured_phone")
+    _draw_text_fit(page, phone_xy, v.insured_phone or "", max_width=right_bound - phone_xy[0])
 
     _draw_text(page, pt("vehicle_make_model"), v.vehicle_make_model or "", max_width=220)
-    _draw_text(page, pt("plate_number"), v.plate_number or "", max_width=180)
+    plate_xy = pt("plate_number")
+    _draw_text_fit(page, plate_xy, v.plate_number or "", max_width=right_bound - plate_xy[0])
     compass = route["compass"] if route else None
     _draw_text(page, pt("sens_suivi"), compass or "", max_width=220)
     _draw_text(page, pt("venant_de"), v.from_address or "", max_width=240)
@@ -389,7 +587,7 @@ def generate_filled_constat(
     route_b = (routes or {}).get("B")
     _fill_vehicle(page, "A", vehicle_a, route_a)
     _fill_vehicle(page, "B", vehicle_b, route_b)
-    _draw_croquis(page, vehicle_a, vehicle_b, route_a, route_b, relative_direction)
+    _draw_croquis(page, claim, vehicle_a, vehicle_b, route_a, route_b, relative_direction)
 
     buf = io.BytesIO()
     doc.save(buf)

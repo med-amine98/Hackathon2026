@@ -17,3 +17,13 @@ requests==2.32.3
 # For assistant/constat_pdf.py's constat PDF generation, called from
 # app/routers/chat.py — same version assistant/requirements.txt pins.
 pymupdf==1.24.13
+# Real car-damage detection (app/damage_detection.py / app/worker.py's
+# run_damage_assessment). ultralytics pulls in torch — this is a genuinely
+# heavy dependency (large image, slower build) which is expected for a real
+# CV model; damage_detection.py still runs its OpenCV heuristic fallback if
+# no trained YOLOv8 checkpoint is present, so the pipeline itself doesn't
+# hard-require these being installed to not crash, but the worker image
+# needs them to ever produce real detections.
+ultralytics==8.3.28
+opencv-python-headless==4.10.0.84
+numpy==1.26.4

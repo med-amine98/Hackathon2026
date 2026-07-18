@@ -1,6 +1,8 @@
+import io
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app import exif_utils, models, schemas, storage
@@ -56,9 +58,44 @@ async def upload_photo(
     db.add(photo)
     db.commit()
     db.refresh(photo)
+
+    # Kick off real YOLOv8 damage detection on this photo (app/worker.py) -
+    # runs async on the Celery worker so the upload response doesn't wait on
+    # model inference. Best-effort: if Redis/the worker isn't reachable, the
+    # photo upload itself must still succeed - the AI Estimation panel just
+    # stays empty for this claim until a retry, same failure mode every
+    # other best-effort call site in this codebase already accepts.
+    try:
+        from app.worker import run_damage_assessment
+
+        run_damage_assessment.delay(claim_id, photo.id)
+    except Exception:
+        pass
+
     return photo
 
 
 @router.get("/{claim_id}/photos", response_model=list[schemas.PhotoOut])
 def list_photos(claim_id: str, db: Session = Depends(get_db)):
     return db.query(models.Photo).filter_by(claim_id=claim_id).all()
+
+
+@router.get("/{claim_id}/photos/{photo_id}/file")
+def get_photo_file(claim_id: str, photo_id: str, db: Session = Depends(get_db)):
+    """
+    Serves the actual image bytes for one uploaded damage photo. Every
+    photo up to now was write-only (upload_photo saves to MinIO, list_photos
+    only returns metadata/s3_key, never the pixels) - nothing could ever
+    display what a client actually photographed. This is what lets the
+    AssureX agency portal (or anything else) put a real <img src=...> on a
+    real damage photo instead of a placeholder - see assurex/backend/
+    platform_claims.py, the only current caller.
+    """
+    photo = db.get(models.Photo, photo_id)
+    if not photo or photo.claim_id != claim_id:
+        raise HTTPException(404, "Photo not found")
+    try:
+        data, content_type = storage.download_bytes(photo.s3_key)
+    except Exception:
+        raise HTTPException(502, "Could not retrieve photo from storage")
+    return StreamingResponse(io.BytesIO(data), media_type=content_type)

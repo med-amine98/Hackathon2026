@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:8000/api';
+// Backend runs via the root docker-compose (assurex-api service, host port
+// 8002) — override with VITE_API_BASE in .env for a different setup.
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8002/api';
 
 const ClientsPage = () => {
   const [clients, setClients] = useState([]);
@@ -93,25 +95,71 @@ const ClientsPage = () => {
                 <div
                   key={client.id}
                   onClick={() => setSelectedClientId(client.id)}
-                  className={`p-4 rounded-2xl cursor-pointer border transition-all flex items-center justify-between ${
+                  className={`p-4 rounded-2xl cursor-pointer border transition-all ${
                     selectedClientId === client.id
                       ? 'bg-primary-container/20 border-primary ring-1 ring-primary'
                       : 'bg-surface-container-low border-outline-variant/10 hover:border-primary/20'
                   }`}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
-                      {client.initials}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                        {client.initials}
+                      </div>
+                      <div>
+                        <h4 className="font-label-md font-bold text-on-surface">{client.name}</h4>
+                        <p className="text-[11px] text-on-surface-variant font-medium">{client.type}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-label-md font-bold text-on-surface">{client.name}</h4>
-                      <p className="text-[11px] text-on-surface-variant font-medium">{client.type}</p>
+                    <div className="text-right">
+                      <span className={`text-[10px] font-bold ${client.risk_color}`}>{client.risk_text} Risk</span>
+                      <p className="text-[10px] text-on-surface-variant mt-1 font-semibold">{client.last_contact}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className={`text-[10px] font-bold ${client.risk_color}`}>{client.risk_text} Risk</span>
-                    <p className="text-[10px] text-on-surface-variant mt-1 font-semibold">{client.last_contact}</p>
-                  </div>
+
+                  {/* Immatriculation / category / CIN / insurance date /
+                      payment status - null for assurex's own demo clients
+                      (they don't carry this data), shown for real mobile
+                      users (see mobile_clients.py). */}
+                  {(client.plate_number || client.cin || client.insurance_date || client.payment_status) && (
+                    <div className="mt-3 pt-3 border-t border-outline-variant/10 flex flex-wrap gap-x-4 gap-y-1.5 text-[10px] font-semibold text-on-surface-variant">
+                      {client.plate_number && (
+                        <span className="flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[13px]">directions_car</span>
+                          {client.plate_number}
+                        </span>
+                      )}
+                      {client.car_category && (
+                        <span className="flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[13px]">category</span>
+                          {client.car_category}
+                        </span>
+                      )}
+                      {client.cin && (
+                        <span className="flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[13px]">badge</span>
+                          CIN {client.cin}
+                        </span>
+                      )}
+                      {client.insurance_date && (
+                        <span className="flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[13px]">event</span>
+                          {client.insurance_date}
+                        </span>
+                      )}
+                      {client.payment_status && (
+                        <span
+                          className={`px-2 py-0.5 rounded-full font-bold uppercase tracking-wide ${
+                            client.payment_status === 'paid'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {client.payment_status === 'paid' ? 'Payé' : 'Impayé'}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
 
@@ -140,9 +188,30 @@ const ClientsPage = () => {
                       <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">phone</span> {activeClient.phone}</span>
                       <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">location_on</span> {activeClient.address}</span>
                     </div>
+                    {(activeClient.plate_number || activeClient.cin || activeClient.insurance_date || activeClient.payment_status) && (
+                      <div className="flex flex-wrap gap-4 mt-2 text-xs text-on-surface-variant font-bold">
+                        {activeClient.plate_number && (
+                          <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">directions_car</span> {activeClient.plate_number}</span>
+                        )}
+                        {activeClient.car_category && (
+                          <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">category</span> {activeClient.car_category}</span>
+                        )}
+                        {activeClient.cin && (
+                          <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">badge</span> CIN {activeClient.cin}</span>
+                        )}
+                        {activeClient.insurance_date && (
+                          <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">event</span> Assurance: {activeClient.insurance_date}</span>
+                        )}
+                        {activeClient.payment_status && (
+                          <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${activeClient.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {activeClient.payment_status === 'paid' ? 'Payé' : 'Impayé'}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
-                
+
                 {/* Loyalty Score widget */}
                 <div className="flex flex-col items-center bg-surface-container-low p-4 rounded-2xl border border-outline-variant/10 min-w-[120px]">
                   <span className="text-[10px] text-on-surface-variant font-extrabold uppercase tracking-wider mb-1">Fidelity Score</span>

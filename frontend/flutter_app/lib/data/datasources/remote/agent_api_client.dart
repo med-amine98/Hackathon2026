@@ -6,6 +6,8 @@
 // ApiClient — the agent has no user-auth model to attach a bearer token
 // for, so no interceptor is needed here.
 
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:ai_insurance_advisor/core/constants/api_constants.dart';
 
@@ -52,6 +54,30 @@ class AgentApiClient {
         if (email != null && email.isNotEmpty) 'email': email,
         if (phone != null && phone.isNotEmpty) 'phone': phone,
       },
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Uploads one photo to platform/backend's POST /claims/{claim_id}/photos
+  /// (see app/routers/photos.py) — this is the only client-side path that
+  /// ever populates the `photos` table; nothing else in the app calls it.
+  /// [claimId] only exists once the agent chat has recorded enough for
+  /// _maybe_generate_constat to have upserted a draft Claim (see
+  /// platform/backend/app/routers/chat.py) — the caller is responsible for
+  /// not invoking this before ChatMessageOut.claim_id has come back non-null.
+  Future<Map<String, dynamic>> uploadPhoto({
+    required String claimId,
+    required String vehicleLabel,
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    final formData = FormData.fromMap({
+      'vehicle_label': vehicleLabel,
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    final Response<Map<String, dynamic>> response = await _dio.post<Map<String, dynamic>>(
+      '/claims/$claimId/photos',
+      data: formData,
     );
     return response.data as Map<String, dynamic>;
   }

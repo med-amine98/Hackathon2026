@@ -133,6 +133,52 @@ services:
       db:
         condition: service_healthy
 
+  # ── AssureX agency portal backend ────────────────────────────────────────
+  # Shares the SAME Postgres database as `api`/`worker`/`mobile-api` above
+  # (the "db" service) — its own "assurex" schema inside it, set via
+  # DB_SCHEMA, so its tables (claims, users) can't collide with the other
+  # backends' same-named ones living in `public` / `mobile`.
+  assurex-api:
+    build: ./assurex/backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DB_SCHEMA: assurex
+      SECRET_KEY: ${ASSUREX_SECRET_KEY:-changeme-in-production}
+    ports:
+      # The assurex-frontend container (below) reaches this from the HOST
+      # at this port (it runs in the browser, not on the Docker network),
+      # so VITE_API_BASE there must match it.
+      - "8002:8000"
+    volumes:
+      - ./assurex/backend:/app
+      # Mask the host's (Windows) venv/ inside the container instead of
+      # bind-mounting it — the image already has its own installed deps.
+      - /app/venv
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # AssureX agency portal frontend (Vite dev server). Talks to assurex-api
+  # over localhost:8002 from the BROWSER, not over the Docker network —
+  # see VITE_API_BASE below and assurex/frontend/.env.example.
+  assurex-frontend:
+    build: ./assurex/frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE: http://localhost:8002/api
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./assurex/frontend:/app
+      # Mask node_modules so the image's own (Linux) install isn't
+      # shadowed by the bind mount — same trick as assurex-api's venv mask.
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+    depends_on:
+      - assurex-api
+
   worker:
     build: ./platform/backend
     restart: unless-stopped

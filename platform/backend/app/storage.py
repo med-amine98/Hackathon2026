@@ -54,3 +54,22 @@ def upload_bytes(key: str, data: bytes, content_type: str = "image/jpeg") -> str
         content_type=content_type,
     )
     return key
+
+
+def download_bytes(key: str) -> tuple[bytes, str]:
+    """
+    Fetches one object back out of MinIO — the read-side counterpart to
+    upload_bytes, used by app/routers/photos.py's file-serving endpoint so a
+    real uploaded damage photo can actually be displayed somewhere (the
+    AssureX agency portal) instead of only ever being written and never read
+    back. Returns (raw bytes, content-type as stored at upload time).
+    """
+    client = get_client()
+    response = client.get_object(MINIO_BUCKET, key)
+    try:
+        data = response.read()
+        content_type = response.headers.get("content-type", "application/octet-stream")
+        return data, content_type
+    finally:
+        response.close()
+        response.release_conn()

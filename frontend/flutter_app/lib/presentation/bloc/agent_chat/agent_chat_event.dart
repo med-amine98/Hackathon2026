@@ -26,3 +26,16 @@ class AgentSetUserEvent extends AgentChatEvent {
 class AgentResetChatEvent extends AgentChatEvent {
   const AgentResetChatEvent();
 }
+
+/// Dispatched when the user picks/captures a photo from the composer's
+/// camera button (see _AgentChatSheetState._pickAndUploadPhoto in
+/// agent_chat_bubble.dart). Only ever dispatched once state.claimId is
+/// non-null — the button itself is disabled/prompts the user to describe
+/// the accident first otherwise, since there's no claim to attach the photo
+/// to yet.
+class AgentUploadPhotoEvent extends AgentChatEvent {
+  final Uint8List bytes;
+  final String filename;
+
+  const AgentUploadPhotoEvent({required this.bytes, required this.filename});
+}

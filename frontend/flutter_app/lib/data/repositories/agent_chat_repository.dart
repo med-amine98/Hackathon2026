@@ -1,5 +1,7 @@
 // lib/data/repositories/agent_chat_repository.dart
 
+import 'dart:typed_data';
+
 import 'package:ai_insurance_advisor/data/datasources/remote/agent_api_client.dart';
 
 class AgentChatRepository {
@@ -42,5 +44,23 @@ class AgentChatRepository {
         'escalation_flag': false,
       };
     }
+  }
+
+  /// Attaches a photo to the claim the current conversation has already
+  /// drafted. Throws on failure — unlike sendMessage, the caller here
+  /// (AgentChatBloc._onUploadPhoto) needs to know it failed so it can tell
+  /// the user the photo wasn't saved, rather than degrading silently.
+  Future<void> uploadPhoto({
+    required String claimId,
+    required Uint8List bytes,
+    required String filename,
+    String vehicleLabel = 'A',
+  }) {
+    return _apiClient.uploadPhoto(
+      claimId: claimId,
+      vehicleLabel: vehicleLabel,
+      bytes: bytes,
+      filename: filename,
+    );
   }
 }

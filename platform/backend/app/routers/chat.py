@@ -300,8 +300,16 @@ def _dispatch_tool(name: str, args: dict, conversation_id: str, state: dict) -> 
 
     if name == "note_mood":
         stress_level = args.get("stress_level")
-        if stress_level in ("stressed", "distressed") or args.get("injury_mentioned") or args.get("dispute_mentioned"):
+        injury_mentioned = bool(args.get("injury_mentioned"))
+        dispute_mentioned = bool(args.get("dispute_mentioned"))
+        if stress_level in ("stressed", "distressed") or injury_mentioned or dispute_mentioned:
             state["escalation_flagged"] = True
+        try:
+            assistant_db.update_conversation_mood(
+                conversation_id, stress_level, injury_mentioned, dispute_mentioned
+            )
+        except Exception:
+            pass  # best-effort persistence, matches assistant/db.py's own philosophy
         return {"logged": True}
 
     if name == "log_correction":
@@ -348,6 +356,20 @@ def _maybe_generate_constat(conversation_id: str, state: dict) -> Optional[str]:
             relative_direction=analysis.get("relative_direction"),
         )
         assistant_db.save_generated_constat(conversation_id, pdf_bytes)
+        # Any time a constat PDF actually gets produced — draft or final —
+        # make sure there's a real Claim/VehicleDeclaration row behind it,
+        # not just the Conversation/Message audit trail. Previously this
+        # only happened once analyze_accident had run with user_confirmed,
+        # which many conversations never reach even though the client
+        # already got a PDF (see assistant/db.py's persist_draft_claim
+        # docstring). Best-effort and cheap to call every turn — it upserts
+        # the same claim row in place rather than duplicating it.
+        try:
+            claim_id = assistant_db.persist_draft_claim(conversation_id, state["claim_info"], a, b)
+            if claim_id and not state.get("claim_id"):
+                state["claim_id"] = claim_id
+        except Exception:
+            pass
         return f"/chat/{conversation_id}/constat.pdf"
     except Exception:
         return None

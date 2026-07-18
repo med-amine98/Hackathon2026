@@ -6,6 +6,14 @@
 .pub/
 build/
 
+# Python bytecode cache - notably, assurex/backend and platform/backend's
+# `app` dirs are bind-mounted into their docker-compose containers for
+# hot-reload, so a stray __pycache__/*.pyc sitting here can in rare cases
+# get picked up over freshly-edited source.
+__pycache__/
+*.pyc
+*.pyo
+
 # Web related
 .web/
 

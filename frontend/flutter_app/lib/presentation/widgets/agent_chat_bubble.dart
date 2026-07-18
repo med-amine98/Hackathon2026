@@ -6,9 +6,11 @@
 // whichever screen go_router is currently showing.
 
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:ai_insurance_advisor/app/routes.dart';
 import 'package:ai_insurance_advisor/app/theme.dart';
@@ -260,6 +262,7 @@ class _AgentChatSheetState extends State<_AgentChatSheet> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (m.localImageBytes != null) _buildPhotoPreview(m.localImageBytes!),
                 ChatBubble(message: m.content, isUser: m.isUser, timestamp: m.timestamp),
                 if (m.constatPdfUrl != null) _buildConstatLink(m.constatPdfUrl!),
               ],
@@ -267,6 +270,68 @@ class _AgentChatSheetState extends State<_AgentChatSheet> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildPhotoPreview(Uint8List bytes) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8, bottom: 4),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.memory(bytes, width: 140, height: 140, fit: BoxFit.cover),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickAndUploadPhoto(BuildContext context, ImageSource source) async {
+    final claimId = context.read<AgentChatBloc>().state.claimId;
+    if (claimId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Décrivez d'abord l'accident dans le chat, le dossier se crée automatiquement."),
+        ),
+      );
+      return;
+    }
+
+    final picked = await ImagePicker().pickImage(source: source, imageQuality: 85);
+    if (picked == null) return;
+
+    final bytes = await picked.readAsBytes();
+    if (!context.mounted) return;
+    context.read<AgentChatBloc>().add(
+          AgentUploadPhotoEvent(bytes: bytes, filename: picked.name),
+        );
+  }
+
+  void _showPhotoSourceSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Prendre une photo'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _pickAndUploadPhoto(context, ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choisir dans la galerie'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _pickAndUploadPhoto(context, ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -302,6 +367,12 @@ class _AgentChatSheetState extends State<_AgentChatSheet> {
         top: false,
         child: Row(
           children: [
+            IconButton(
+              icon: const Icon(Icons.camera_alt_outlined),
+              color: AppTheme.secondaryColor,
+              tooltip: 'Ajouter une photo au dossier',
+              onPressed: () => _showPhotoSourceSheet(context),
+            ),
             Expanded(
               child: TextField(
                 controller: _controller,

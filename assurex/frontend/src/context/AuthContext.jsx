@@ -2,7 +2,9 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext();
-const API_BASE = 'http://localhost:8000/api';
+// Backend runs via the root docker-compose (assurex-api service, host port
+// 8002) — override with VITE_API_BASE in .env for a different setup.
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8002/api';
 
 export const useAuth = () => useContext(AuthContext);
 

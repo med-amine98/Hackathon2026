@@ -108,6 +108,34 @@ class FaultDetermination(Base):
     claim = relationship("Claim", back_populates="fault_determination")
 
 
+class DamageEstimate(Base):
+    """
+    Output of the YOLOv8 damage-detection pipeline (app/damage_detection.py),
+    one row per claim - aggregated across every photo uploaded for it so far
+    (see app/worker.py's run_damage_assessment, triggered on every photo
+    upload in app/routers/photos.py). Read by assurex/backend's
+    platform_claims.py to populate the AI Damage Estimation panel with real
+    hotspots/costs instead of the empty-list placeholder it used to fall
+    back to for every real (non-demo) constat.
+    """
+    __tablename__ = "damage_estimates"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    claim_id = Column(String, ForeignKey("claims.id"), nullable=False, unique=True)
+
+    hotspots = Column(JSON, default=list)  # list[dict] — see damage_detection.estimate_repair
+    subtotal = Column(Float, default=0.0)
+    total = Column(Float, default=0.0)
+    damage_percent = Column(Integer, default=0)
+    insights = Column(String, nullable=True)
+    vehicle_make_model = Column(String, nullable=True)
+    vehicle_tier = Column(String, nullable=True)  # "economique" / "standard" / "premium"
+    photos_analyzed = Column(Integer, default=0)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+    claim = relationship("Claim")
+
+
 class Conversation(Base):
     """
     One agent chat session between the assistant and a client (see
@@ -126,6 +154,15 @@ class Conversation(Base):
     llm_model = Column(String, nullable=True)
     escalation_flag = Column(Boolean, default=False)
     escalation_reasons = Column(JSON, default=list)  # list[str]
+    # Granular emotion/mood tracking from the assistant's note_mood tool
+    # (see assistant/prompts.py) — last_mood is the most recent
+    # calm/concerned/stressed/distressed reading for this conversation;
+    # injury_mentioned/dispute_mentioned are sticky flags (once true, stay
+    # true) so the portal can see "this client mentioned an injury" even if
+    # a later turn is calmer.
+    last_mood = Column(String, nullable=True)  # "calm" / "concerned" / "stressed" / "distressed"
+    injury_mentioned = Column(Boolean, default=False)
+    dispute_mentioned = Column(Boolean, default=False)
     # in_progress -> completed. Deliberately not richer than this — this
     # table exists for message/profile persistence and audit, not as a
     # second claim-workflow state machine duplicating Claim.status.

@@ -7,6 +7,7 @@ import DashboardPage from './pages/Dashboard';
 import ClaimsPage from './pages/Claims';
 import AIEstimationPage from './pages/AIEstimation';
 import ClientsPage from './pages/Clients';
+import AnalyticsPage from './pages/Analytics';
 
 // Sidebar component with logout
 const Sidebar = () => {
@@ -76,6 +77,17 @@ const Sidebar = () => {
         >
           <span className="material-symbols-outlined">group</span>
           <span className="font-label-md">Clients</span>
+        </Link>
+        <Link
+          to="/analytics"
+          className={`flex items-center gap-3 px-4 py-3 rounded-lg group transition-all ${
+            isActive('/analytics')
+              ? 'text-primary bg-primary-fixed/30 font-bold'
+              : 'text-on-surface-variant hover:bg-surface-container-low'
+          }`}
+        >
+          <span className="material-symbols-outlined">query_stats</span>
+          <span className="font-label-md">Analyse</span>
         </Link>
       </nav>
       <div className="px-4 py-6 border-t border-outline-variant/20">
@@ -158,6 +170,7 @@ const AppContent = () => {
             <Route path="/ai-estimation" element={<AIEstimationPage />} />
             <Route path="/ai-estimation/:claimId" element={<AIEstimationPage />} />
             <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/signup" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />

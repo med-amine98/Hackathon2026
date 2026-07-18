@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, text
+from sqlalchemy import MetaData, create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
@@ -32,7 +32,20 @@ else:
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-Base = declarative_base()
+# search_path alone doesn't stop this collision: platform/backend/app/
+# models.py ALSO defines tables named "conversations" and "messages" (in
+# the public schema) — the exact names this backend uses too, per the
+# comment above. Base.metadata.create_all()'s existence check is visible
+# across the whole search_path, not just the first schema on it, so it saw
+# platform's public.conversations/messages already there and silently never
+# created this backend's own mobile.conversations/mobile.messages — every
+# ORM query against the unqualified table name then resolved via
+# search_path straight into platform's unrelated agent-chat tables instead.
+# Pinning an explicit schema on this Base's MetaData makes every generated
+# statement (create_all's DDL and every ORM query) fully schema-qualified
+# regardless of search_path, closing that gap for good.
+_metadata = MetaData(schema=settings.db_schema) if (not is_sqlite and settings.db_schema) else None
+Base = declarative_base(metadata=_metadata)
 
 
 def ensure_schema() -> None:

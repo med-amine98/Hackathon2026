@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:8000/api';
+// Backend runs via the root docker-compose (assurex-api service, host port
+// 8002) — override with VITE_API_BASE in .env for a different setup.
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8002/api';
 
 const AIEstimationPage = () => {
   const { claimId } = useParams();
@@ -91,9 +93,17 @@ const AIEstimationPage = () => {
               <span>{data.vehicle}</span>
             </nav>
           </div>
-          <div className="bg-primary/10 text-primary px-5 py-2.5 rounded-full flex items-center gap-2 max-w-max">
-            <span className="material-symbols-outlined text-[20px] font-bold" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-            <span className="font-label-md font-bold">{data.status}</span>
+          <div className="flex items-center gap-3">
+            {data.damage_percent !== undefined && data.damage_percent !== null && (
+              <div className="bg-error-container text-on-error-container px-5 py-2.5 rounded-full flex items-center gap-2 max-w-max">
+                <span className="material-symbols-outlined text-[20px] font-bold">car_crash</span>
+                <span className="font-label-md font-bold">{data.damage_percent}% de dommages (IA)</span>
+              </div>
+            )}
+            <div className="bg-primary/10 text-primary px-5 py-2.5 rounded-full flex items-center gap-2 max-w-max">
+              <span className="material-symbols-outlined text-[20px] font-bold" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+              <span className="font-label-md font-bold">{data.status}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -155,6 +165,39 @@ const AIEstimationPage = () => {
 
         {/* Right column: detection card list */}
         <div className="lg:col-span-4 flex flex-col gap-6">
+          {/* Fault split - only present for real constats filed via the
+              mobile app once the fault engine has run (see
+              assurex/backend/platform_claims.py). Shows who's at fault, as
+              a %, which is the actual point of running that engine - this
+              is the first place in the portal anything reads
+              fault_a_pct/fault_b_pct back out. */}
+          {data.fault && (
+            <div className="bg-white border border-outline-variant/30 rounded-3xl p-6 shadow-sm flex-shrink-0">
+              <h3 className="font-headline-md text-headline-md mb-4 font-bold flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">balance</span>
+                Fault Determination
+              </h3>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex-1 h-3 rounded-full overflow-hidden bg-outline-variant/20 flex">
+                  <div className="h-full bg-primary" style={{ width: `${data.fault.fault_a_pct}%` }} />
+                  <div className="h-full bg-orange-400" style={{ width: `${data.fault.fault_b_pct}%` }} />
+                </div>
+              </div>
+              <div className="flex justify-between text-label-sm font-bold mb-4">
+                <span className="text-primary">Vehicle A: {data.fault.fault_a_pct}%</span>
+                <span className="text-orange-600">Vehicle B: {data.fault.fault_b_pct}%</span>
+              </div>
+              {data.fault.needs_manual_review && (
+                <div className="flex items-center gap-2 text-xs font-bold text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 mb-3">
+                  <span className="material-symbols-outlined text-sm">warning</span>
+                  Needs manual review - no clean rule match
+                </div>
+              )}
+              <p className="text-body-sm text-on-surface-variant leading-relaxed">{data.fault.explanation}</p>
+              <p className="text-[11px] text-on-surface-variant/70 mt-2 font-mono">rule: {data.fault.rule_id}</p>
+            </div>
+          )}
+
           <div className="bg-white border border-outline-variant/30 rounded-3xl p-6 shadow-sm flex flex-col flex-1">
             <h3 className="font-headline-md text-headline-md mb-6 font-bold">Detection Report</h3>
             
@@ -181,7 +224,7 @@ const AIEstimationPage = () => {
                         <p className="text-[12px] text-on-surface-variant font-medium">{hs.severity} Gravity</p>
                       </div>
                     </div>
-                    <p className="font-headline-md text-on-surface font-extrabold">${hs.cost.toFixed(2)}</p>
+                    <p className="font-headline-md text-on-surface font-extrabold">{hs.cost.toFixed(2)} DT</p>
                   </div>
                   <p className="text-body-sm text-on-surface-variant line-clamp-2 mt-2">{hs.description}</p>
                   <div className="w-full bg-outline-variant/20 h-1.5 rounded-full mt-3 overflow-hidden">
@@ -205,11 +248,11 @@ const AIEstimationPage = () => {
             <div className="mt-8 pt-6 border-t border-outline-variant/20 flex-shrink-0">
               <div className="flex justify-between items-center mb-2">
                 <span className="font-label-md text-on-surface-variant font-medium">Subtotal Estimate</span>
-                <span className="font-label-md text-on-surface font-bold">${data.subtotal.toFixed(2)}</span>
+                <span className="font-label-md text-on-surface font-bold">{data.subtotal.toFixed(2)} DT</span>
               </div>
               <div className="flex justify-between items-center py-4 border-t border-outline-variant/20">
                 <span className="font-headline-md text-headline-md font-extrabold">Total Estimate</span>
-                <span className="font-headline-md text-headline-md text-primary font-extrabold">${data.total.toFixed(2)}</span>
+                <span className="font-headline-md text-headline-md text-primary font-extrabold">{data.total.toFixed(2)} DT</span>
               </div>
             </div>
           </div>

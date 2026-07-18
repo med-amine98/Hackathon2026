@@ -101,6 +101,32 @@ def update_conversation_escalation(conversation_id: str, flag: bool, reasons: li
             db.commit()
 
 
+def update_conversation_mood(
+    conversation_id: str,
+    stress_level: str | None,
+    injury_mentioned: bool = False,
+    dispute_mentioned: bool = False,
+) -> None:
+    """
+    Persists the granular reading from the assistant's note_mood tool
+    (see assistant/prompts.py). Called on every note_mood tool call, not
+    just escalations, so last_mood always reflects the most recent turn.
+    injury_mentioned/dispute_mentioned are sticky - once true for a
+    conversation they stay true, since a client calming down later doesn't
+    mean the injury/dispute they mentioned earlier stops being relevant.
+    """
+    with SessionLocal() as db:
+        convo = db.get(Conversation, conversation_id)
+        if convo:
+            if stress_level:
+                convo.last_mood = stress_level
+            if injury_mentioned:
+                convo.injury_mentioned = True
+            if dispute_mentioned:
+                convo.dispute_mentioned = True
+            db.commit()
+
+
 def update_conversation_llm_config(conversation_id: str, base_url: str, model: str) -> None:
     """
     create_conversation() records whatever base_url/model were the *code*
@@ -220,11 +246,15 @@ def _full_name(first: Optional[str], last: Optional[str]) -> Optional[str]:
     return " ".join(parts) or None
 
 
-def persist_claim_and_fault(conversation_id: str, claim_info, vehicle_a, vehicle_b, fault_result: dict) -> str:
+def _upsert_claim_and_vehicles(db, claim_id: Optional[str], claim_info, vehicle_a, vehicle_b) -> Claim:
     """
-    Creates a real Claim + two VehicleDeclarations + a FaultDetermination
-    once analyze_accident actually runs, reusing the platform's own schema
-    rather than a shadow copy of it. Returns the new claim's id.
+    Shared by persist_draft_claim and persist_claim_and_fault so a claim
+    created from an early, partial draft constat is the SAME row a later
+    analyze_accident call attaches a FaultDetermination to — not a second,
+    duplicate Claim. Update-in-place (by claim_id) if one's already linked
+    to this conversation, create fresh otherwise. Does NOT commit — callers
+    own the transaction/session so they can attach a FaultDetermination or
+    update Conversation.claim_id in the same commit.
 
     Deliberately does NOT try to parse claim_info.accident_date/accident_time
     into Claim.accident_datetime — those are free text exactly as the client
@@ -235,42 +265,101 @@ def persist_claim_and_fault(conversation_id: str, claim_info, vehicle_a, vehicle
     that's a real lookup against a real address, not a guess.
     """
     location_coords = geocoding.geocode(claim_info.location) if claim_info.location else None
-    with SessionLocal() as db:
-        claim = Claim(
-            location_text=claim_info.location,
-            location_lat=location_coords["lat"] if location_coords else None,
-            location_lng=location_coords["lng"] if location_coords else None,
-            status="needs_review" if fault_result["needs_manual_review"] else "fault_determined",
-        )
+
+    claim = db.get(Claim, claim_id) if claim_id else None
+    if claim is None:
+        claim = Claim(status="draft")
         db.add(claim)
         db.flush()  # populate claim.id before creating rows that reference it
 
-        for label, v in (("A", vehicle_a), ("B", vehicle_b)):
-            db.add(
-                VehicleDeclaration(
-                    claim_id=claim.id,
-                    vehicle_label=label,
-                    plate_number=v.plate_number,
-                    insurer_name=v.insurance_company,
-                    policy_number=v.policy_number,
-                    driver_name=_full_name(v.driver_first_name, v.driver_last_name),
-                    circumstances=list(v.circumstances),
-                    impact_zones=list(v.impact_zones),
-                )
-            )
+    claim.location_text = claim_info.location
+    if location_coords:
+        claim.location_lat = location_coords["lat"]
+        claim.location_lng = location_coords["lng"]
 
-        db.add(
-            FaultDetermination(
-                claim_id=claim.id,
-                fault_a_pct=fault_result["fault_a_pct"],
-                fault_b_pct=fault_result["fault_b_pct"],
-                rule_id=fault_result["rule_id"],
-                explanation=fault_result["explanation"],
-                needs_manual_review=fault_result["needs_manual_review"],
-            )
+    for label, v in (("A", vehicle_a), ("B", vehicle_b)):
+        decl = (
+            db.query(VehicleDeclaration)
+            .filter_by(claim_id=claim.id, vehicle_label=label)
+            .first()
         )
+        if decl is None:
+            decl = VehicleDeclaration(claim_id=claim.id, vehicle_label=label)
+            db.add(decl)
+        decl.plate_number = v.plate_number
+        decl.insurer_name = v.insurance_company
+        decl.policy_number = v.policy_number
+        decl.driver_name = _full_name(v.driver_first_name, v.driver_last_name)
+        decl.circumstances = list(v.circumstances)
+        decl.impact_zones = list(v.impact_zones)
 
+    return claim
+
+
+def persist_draft_claim(conversation_id: str, claim_info, vehicle_a, vehicle_b) -> Optional[str]:
+    """
+    Best-effort upsert of a Claim + two VehicleDeclarations the moment a
+    constat PDF (even just a draft, well before analyze_accident has run —
+    see app/routers/chat.py's _maybe_generate_constat) is actually generated
+    for a client. Without this, a client could receive a real PDF constat in
+    the chat while the claims/vehicle_declarations tables stayed completely
+    empty for that conversation — only messages/conversations would show
+    anything happened — because those tables used to be written exclusively
+    by persist_claim_and_fault below, which only ever runs once the client
+    has explicitly confirmed the recap AND analyze_accident has been called.
+    Many real conversations reasonably stop before that point (client just
+    wants the draft with gaps marked, per the loop-avoidance rules in
+    prompts.py) — this makes sure "I got a constat" always means "there's a
+    real claim row for it," draft or not.
+
+    Reuses the same claim row on every call for one conversation (via
+    Conversation.claim_id), so this never creates duplicates as the draft
+    gets regenerated with more data, and analyze_accident later attaches its
+    FaultDetermination to this same row instead of creating a second one.
+    Returns the claim id, or None on any failure — callers already treat
+    this as best-effort (same philosophy as every other function here).
+    """
+    try:
+        with SessionLocal() as db:
+            convo = db.get(Conversation, conversation_id)
+            claim = _upsert_claim_and_vehicles(
+                db, convo.claim_id if convo else None, claim_info, vehicle_a, vehicle_b
+            )
+            db.flush()
+            if convo:
+                convo.claim_id = claim.id
+            db.commit()
+            return claim.id
+    except Exception:
+        return None
+
+
+def persist_claim_and_fault(conversation_id: str, claim_info, vehicle_a, vehicle_b, fault_result: dict) -> str:
+    """
+    Upserts the Claim + two VehicleDeclarations (same shared logic as
+    persist_draft_claim — reuses the conversation's existing claim row
+    rather than creating a second one if a draft constat already made one)
+    and attaches/replaces a FaultDetermination, once analyze_accident
+    actually runs. Returns the claim's id.
+    """
+    with SessionLocal() as db:
         convo = db.get(Conversation, conversation_id)
+        claim = _upsert_claim_and_vehicles(
+            db, convo.claim_id if convo else None, claim_info, vehicle_a, vehicle_b
+        )
+        claim.status = "needs_review" if fault_result["needs_manual_review"] else "fault_determined"
+
+        fault = db.query(FaultDetermination).filter_by(claim_id=claim.id).first()
+        if fault is None:
+            fault = FaultDetermination(claim_id=claim.id)
+            db.add(fault)
+        fault.fault_a_pct = fault_result["fault_a_pct"]
+        fault.fault_b_pct = fault_result["fault_b_pct"]
+        fault.rule_id = fault_result["rule_id"]
+        fault.explanation = fault_result["explanation"]
+        fault.needs_manual_review = fault_result["needs_manual_review"]
+        fault.determined_at = datetime.now(timezone.utc)
+
         if convo:
             convo.claim_id = claim.id
 

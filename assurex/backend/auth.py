@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta  # <-- Add timedelta here
 from typing import Optional
 from jose import JWTError, jwt
@@ -9,8 +10,10 @@ from database import get_db
 from models import User
 from schemas import TokenData
 
-# Security configuration - CHANGE THIS IN PRODUCTION!
-SECRET_KEY = "your-secret-key-here-change-in-production"
+# Security configuration - overridable via SECRET_KEY env var (set by
+# docker-compose for the assurex-api service). CHANGE THE DEFAULT IN
+# PRODUCTION!
+SECRET_KEY = os.environ.get("SECRET_KEY", "your-secret-key-here-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
