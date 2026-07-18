@@ -21,7 +21,7 @@ pymupdf==1.24.13
 # run_damage_assessment). ultralytics pulls in torch — this is a genuinely
 # heavy dependency (large image, slower build) which is expected for a real
 # CV model; damage_detection.py still runs its OpenCV heuristic fallback if
-# no trained YOLOv8 checkpoint is present, so the pipeline itself doesn't
+# no trained YOLO11 checkpoint is present, so the pipeline itself doesn't
 # hard-require these being installed to not crash, but the worker image
 # needs them to ever produce real detections.
 ultralytics==8.3.28

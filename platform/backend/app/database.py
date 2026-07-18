@@ -3,8 +3,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.config import DATABASE_URL
 
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
@@ -22,15 +21,9 @@ def ensure_schema() -> None:
     """
     MVP substitute for real migrations (see main.py's on_startup comment).
     Base.metadata.create_all() only creates tables that don't exist yet — it
-    silently does NOT add new columns to a table that already exists. That
-    gap let a real bug ship: ClientProfile.mobile_user_id was added to the
-    model, but pgdata is a named, persistent Docker volume (see
-    docker-compose.yml), so every already-running deployment kept its OLD
-    client_profiles table without that column. Every INSERT/UPDATE into it
-    then failed with an UndefinedColumn error, silently swallowed by the
-    best-effort try/except around every call site (see assistant/db.py's
-    module docstring) — no error surfaced anywhere, the table just stayed
-    empty forever even though the code looked correct.
+    does not add new columns to a table that already exists, which matters
+    because pgdata is a named, persistent Docker volume (see
+    docker-compose.yml) that survives across deploys.
 
     This walks every model's columns, compares against what's actually in
     the database, and ALTERs in whatever's missing. Deliberately additive

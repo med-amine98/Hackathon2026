@@ -17,9 +17,6 @@ or the mobile backend's `mobile` schema) are left completely alone. It
 only ever runs ADD COLUMN / ALTER COLUMN TYPE against `claims`, and only
 for the columns/type that are actually missing - safe to run on every
 startup (no-ops once the table is already current).
-
-Postgres-only; a no-op for SQLite (local/standalone dev, recreated freely
-from a throwaway file).
 """
 
 from sqlalchemy import text
@@ -96,16 +93,10 @@ def _add_missing_columns(engine, qualified_table: str, columns: list[tuple[str, 
 
 
 def _table_exists(engine, qualified_table: str) -> bool:
-    # Previously gated on inspector.get_table_names(schema=schema) - that
-    # reads Postgres's cached catalog via SQLAlchemy's reflection, which in
-    # practice returned an empty list here even though the table genuinely
-    # existed in this schema (stale reflection cache / a fresh Inspector not
-    # picking up a schema created moments earlier by ensure_schema() in the
-    # same startup). When that check wrongly said "doesn't exist", the whole
-    # migration silently never ran - exactly the "seed_if_empty crashes on
-    # claims.type" bug this file exists to prevent. to_regclass() is a
-    # direct, uncached catalog lookup - ground truth, not a reflection
-    # snapshot.
+    # to_regclass() is a direct, uncached catalog lookup - ground truth,
+    # unlike SQLAlchemy's reflection-based inspector.get_table_names(),
+    # which can miss a schema/table created moments earlier in the same
+    # startup (e.g. by ensure_schema() just before this runs).
     with engine.begin() as conn:
         exists = conn.execute(
             text("SELECT to_regclass(:qualified)"), {"qualified": qualified_table}
@@ -114,9 +105,6 @@ def _table_exists(engine, qualified_table: str) -> bool:
 
 
 def run_migrations(engine, schema: str) -> None:
-    if engine.dialect.name != "postgresql":
-        return  # SQLite dev db - create_all/seed handle it fine as-is
-
     claims_table = f'"{schema}".claims'
     clients_table = f'"{schema}".clients'
 

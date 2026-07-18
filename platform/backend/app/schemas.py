@@ -57,6 +57,10 @@ class PhotoOut(BaseModel):
     has_metadata: bool
     duplicate_of_photo_id: Optional[str]
     uploaded_at: datetime
+    # Set once app/worker.py's run_damage_assessment has processed this
+    # photo — lets a caller know a GET .../annotated (see routers/photos.py)
+    # will actually return a boxes-drawn image instead of 404ing.
+    annotated_s3_key: Optional[str] = None
 
 
 class FaultOut(BaseModel):

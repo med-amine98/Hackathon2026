@@ -59,7 +59,7 @@ async def upload_photo(
     db.commit()
     db.refresh(photo)
 
-    # Kick off real YOLOv8 damage detection on this photo (app/worker.py) -
+    # Kick off real YOLO11 damage detection on this photo (app/worker.py) -
     # runs async on the Celery worker so the upload response doesn't wait on
     # model inference. Best-effort: if Redis/the worker isn't reachable, the
     # photo upload itself must still succeed - the AI Estimation panel just
@@ -98,4 +98,28 @@ def get_photo_file(claim_id: str, photo_id: str, db: Session = Depends(get_db)):
         data, content_type = storage.download_bytes(photo.s3_key)
     except Exception:
         raise HTTPException(502, "Could not retrieve photo from storage")
+    return StreamingResponse(io.BytesIO(data), media_type=content_type)
+
+
+@router.get("/{claim_id}/photos/{photo_id}/annotated")
+def get_photo_annotated_file(claim_id: str, photo_id: str, db: Session = Depends(get_db)):
+    """
+    Serves the boxes-drawn version of one photo — the same pixels as
+    .../file, but with every damage detection's bounding box + "class
+    conf%" label drawn on top (see app/damage_detection.py's annotate_image,
+    produced by app/worker.py's run_damage_assessment right after
+    detection). 404s (rather than falling back to the raw photo) if the
+    worker hasn't processed this photo yet, so a caller can tell the
+    difference between "not analyzed yet" and "analyzed, zero damage
+    detected" instead of silently getting an unannotated image either way.
+    """
+    photo = db.get(models.Photo, photo_id)
+    if not photo or photo.claim_id != claim_id:
+        raise HTTPException(404, "Photo not found")
+    if not photo.annotated_s3_key:
+        raise HTTPException(404, "This photo hasn't been analyzed yet — no annotated version available")
+    try:
+        data, content_type = storage.download_bytes(photo.annotated_s3_key)
+    except Exception:
+        raise HTTPException(502, "Could not retrieve annotated photo from storage")
     return StreamingResponse(io.BytesIO(data), media_type=content_type)

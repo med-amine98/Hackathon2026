@@ -30,18 +30,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create assurex's own Postgres schema first (no-op for SQLite), then
-# non-destructively add any columns an older `claims` table is missing
+# Create assurex's own Postgres schema first, then non-destructively add
+# any columns an older `claims` table is missing
 # (see migrate.py - never drops/touches existing rows or other tables),
 # then create any tables that don't exist yet at all.
 ensure_schema()
 run_migrations(engine, DB_SCHEMA)
 Base.metadata.create_all(bind=engine)
 
-# Claims/clients/dashboard stats used to be an in-memory mock dict here.
-# They're now real rows in the database (see models.py) - seed_if_empty
-# inserts the same demo content once, on first startup, so the app isn't
-# empty out of the box. Every request below reads/writes the DB directly.
+# Claims/clients/dashboard stats live as real rows in the database (see
+# models.py) - seed_if_empty inserts demo content once, on first startup,
+# so the app isn't empty out of the box. Every request below reads/writes
+# the DB directly.
 _seed_db = SessionLocal()
 try:
     seed_if_empty(_seed_db)

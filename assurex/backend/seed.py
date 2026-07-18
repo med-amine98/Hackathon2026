@@ -20,7 +20,8 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from models import Claim, Client, DashboardStat
+from models import Claim, Client, DashboardStat, User
+from auth import get_password_hash
 
 # Same default/fallback estimation image previously generated on the fly by
 # GET /api/claims/{id} for claims with no AI estimation on file.
@@ -272,6 +273,33 @@ CLIENTS = [
     },
 ]
 
+# Test/demo agent accounts for the portal's own login (POST /api/auth/login)
+# - the app only exposes self-service signup, so without these the portal
+# would be entirely unusable out of the box (no way in without first calling
+# /api/auth/signup manually). Password is the same fixed demo password used
+# by the mobile backend's seeded accounts (backend/app/database/seed.py) for
+# consistency across the whole prototype - "demo1234". Never use a fixed
+# demo password for real accounts in production.
+_DEMO_PASSWORD_HASH = get_password_hash("demo1234")
+
+AGENTS = [
+    {
+        "email": "agent@assurex.tn",
+        "username": "agent_demo",
+        "full_name": "Alex Karray",
+        "hashed_password": _DEMO_PASSWORD_HASH,
+        "is_active": True,
+    },
+    {
+        "email": "admin@assurex.tn",
+        "username": "admin_demo",
+        "full_name": "Admin AssureX",
+        "hashed_password": _DEMO_PASSWORD_HASH,
+        "is_active": True,
+    },
+]
+
+
 DASHBOARD_STATS = {
     "active_claims": {"value": "1,284", "change": "+12%", "trending": True},
     "processing_time": {"value": "3.8 days", "change": "Avg. 4.2d", "trending": False},
@@ -293,6 +321,10 @@ def seed_if_empty(db: Session) -> None:
 
     if db.get(DashboardStat, 1) is None:
         db.add(DashboardStat(id=1, data=DASHBOARD_STATS))
+
+    if db.query(User).first() is None:
+        for row in AGENTS:
+            db.add(User(**row))
 
     # Every db.add() above only stages the row in this Session - without an
     # explicit commit, main.py's `finally: _seed_db.close()` right after

@@ -5,7 +5,7 @@ surprises in local dev vs. docker.
 """
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./local_dev.db")
+DATABASE_URL = os.environ["DATABASE_URL"]
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9001")
@@ -29,7 +29,6 @@ IDA_DAMAGE_CAP_TND = float(os.getenv("IDA_DAMAGE_CAP_TND", "2000"))
 # replies with a "not configured" message instead of calling out to an LLM.
 LLM_API_KEY = os.getenv("LLM_API_KEY")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
-# gemini-2.5-flash was retired for new users (Google returns 404 "no longer
-# available to new users" — confirmed against a live account). gemini-3.5-
-# flash is the current generally-available flash model as of mid-2026.
+# gemini-3.5-flash is the current generally-available flash model as of
+# mid-2026; older flash model IDs are no longer available for new API keys.
 LLM_MODEL = os.getenv("LLM_MODEL", "gemini-3.5-flash")

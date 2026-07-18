@@ -2,7 +2,7 @@
 
 Backend FastAPI de l'assistant IA d'assurance auto, conçu pour le marché tunisien.
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 backend/
@@ -19,15 +19,13 @@ backend/
 │   └── services/             # Logique métier
 ├── alembic/                  # Migrations de base de données
 ├── tests/                    # Tests unitaires et d'intégration
-├── .env.example              # Template de configuration
 ├── .gitignore
 ├── alembic.ini
-├── docker-compose.yml
-├── Dockerfile
+├── docker-compose.yml        # déprécié, voir "Docker" ci-dessous
 └── requirements.txt
 ```
 
-## 🚀 Démarrage rapide
+## Démarrage rapide
 
 ### 1. Prérequis
 - Python 3.11+
@@ -36,7 +34,6 @@ backend/
 ### 2. Installation
 
 ```bash
-# Cloner le repo
 cd backend
 
 # Créer un environnement virtuel
@@ -46,11 +43,9 @@ python -m venv .venv
 
 # Installer les dépendances
 pip install -r requirements.txt
-
-# Configurer les variables d'environnement
-copy .env.example .env
-# Éditez .env avec vos valeurs (SECRET_KEY, OPENAI_API_KEY, etc.)
 ```
+
+Créez un fichier `.env` dans ce dossier avec les variables listées dans « Variables d'environnement » ci-dessous (au minimum `SECRET_KEY` ; le reste a un défaut ou est optionnel).
 
 ### 3. Lancer le serveur
 
@@ -61,14 +56,11 @@ uvicorn app.main:app --reload --port 8000
 L'API est disponible sur : http://localhost:8000
 Documentation interactive : http://localhost:8000/docs
 
-## 🐳 Docker
+## Docker
 
-```bash
-# Lancer avec Docker Compose (API + PostgreSQL + Redis)
-docker-compose up --build
-```
+Le `docker-compose.yml` de ce dossier est déprécié : ce backend partage désormais l'unique base Postgres du stack (schéma `mobile`) définie par le `docker-compose.yml` à la racine de `Hackathon2026`. Pour le lancer avec Docker, utilisez ce compose racine (`cd Hackathon2026 && docker compose up --build`, voir le [README](../README.md)) — il expose ce backend sur `http://localhost:8001`, pas via ce fichier local.
 
-## 🗄️ Migrations de base de données
+## Migrations de base de données
 
 ```bash
 # Générer une nouvelle migration
@@ -81,14 +73,14 @@ alembic upgrade head
 alembic downgrade -1
 ```
 
-## 🧪 Tests
+## Tests
 
 ```bash
 pip install pytest pytest-asyncio httpx
 pytest tests/ -v
 ```
 
-## 📋 Endpoints API
+## Endpoints API
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
@@ -103,14 +95,17 @@ pytest tests/ -v
 | GET | `/api/v1/recommendations` | Mes recommandations |
 | POST | `/api/v1/recommendations/{id}/accept` | Accepter une recommandation |
 
-## 🔧 Variables d'environnement
+## Variables d'environnement
 
 | Variable | Description | Défaut |
 |----------|-------------|--------|
-| `DATABASE_URL` | URL de connexion à la base | `sqlite:///./insurance.db` |
-| `SECRET_KEY` | Clé secrète JWT (min 32 chars) | — |
+| `DATABASE_URL` | URL de connexion à la base. Pour pointer vers le Postgres partagé du compose racine plutôt que SQLite : `postgresql://constat:<password>@localhost:5438/constat` | `sqlite:///./insurance.db` |
+| `DB_SCHEMA` | Schéma isolant les tables de ce backend (`users`, `conversations`, `messages`, ...) quand `DATABASE_URL` pointe vers le Postgres partagé, pour ne pas collisionner avec le schéma `public` de l'agent | `mobile` |
+| `SECRET_KEY` | Clé secrète JWT (min 32 caractères) — générez-en une avec `openssl rand -hex 32` en prod | — |
 | `ALGORITHM` | Algorithme JWT | `HS256` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Durée de validité du token | `30` |
-| `OPENAI_API_KEY` | Clé API OpenAI (optionnel) | — |
+| `OPENAI_API_KEY` | Clé API OpenAI (optionnel, repli sur des règles si absente) | — |
+| `OPENWEATHER_API_KEY` | Utilisée par `/api/v1/prevention/data` (optionnel, repli sur des données météo statiques) | — |
+| `TOMTOM_API_KEY` | Utilisée par `/api/v1/prevention/data` (optionnel, repli sur des données trafic statiques) | — |
 | `REDIS_URL` | URL Redis pour le cache | `redis://localhost:6379` |
 | `DEBUG` | Mode debug | `False` |

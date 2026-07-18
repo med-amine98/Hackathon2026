@@ -80,6 +80,14 @@ class Photo(Base):
     s3_key = Column(String, nullable=False)
     content_hash = Column(String, nullable=True)  # perceptual hash (hex string)
 
+    # Set by app/worker.py's run_damage_assessment once damage detection has
+    # run on this specific photo: the same photo, re-saved to MinIO with
+    # each detected damage's bounding box + "class conf%" label drawn on it
+    # (app/damage_detection.py's annotate_image), so an agent can actually
+    # see what the model found instead of just reading a cost line. Stays
+    # NULL until the worker has processed this photo at least once.
+    annotated_s3_key = Column(String, nullable=True)
+
     exif_datetime = Column(DateTime, nullable=True)
     exif_gps_lat = Column(Float, nullable=True)
     exif_gps_lng = Column(Float, nullable=True)
@@ -110,7 +118,7 @@ class FaultDetermination(Base):
 
 class DamageEstimate(Base):
     """
-    Output of the YOLOv8 damage-detection pipeline (app/damage_detection.py),
+    Output of the YOLO11 damage-detection pipeline (app/damage_detection.py),
     one row per claim - aggregated across every photo uploaded for it so far
     (see app/worker.py's run_damage_assessment, triggered on every photo
     upload in app/routers/photos.py). Read by assurex/backend's

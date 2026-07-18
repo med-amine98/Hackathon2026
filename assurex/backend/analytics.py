@@ -13,6 +13,7 @@ their gravity/status/payment-status mappings a second time here, so this
 page can never drift out of sync with what the Claims/Clients pages
 themselves show.
 """
+import logging
 from collections import Counter
 from datetime import datetime
 from typing import Any
@@ -23,6 +24,8 @@ from sqlalchemy.orm import Session
 from models import Claim, Client
 import mobile_clients
 import platform_claims
+
+logger = logging.getLogger(__name__)
 
 
 def _month_key(dt: datetime) -> str:
@@ -54,34 +57,49 @@ def build_overview(db: Session) -> dict[str, Any]:
     )
 
     # --- Fault engine + photos: platform-only concepts, no assurex equivalent ---
-    fault_reviews = db.execute(
-        text("SELECT needs_manual_review FROM public.fault_determinations")
-    ).scalars().all()
+    # Same standalone/not-yet-migrated fallback as platform_claims.py /
+    # mobile_clients.py: these raw queries hit platform/backend's own
+    # public.* tables directly, which may not exist if that backend hasn't
+    # started/migrated against the shared Postgres yet (or this container is
+    # running on its own SQLite). Degrade to zeros/empty rather than 500 the
+    # whole "Analyse" page over stats that are genuinely just unavailable
+    # yet, not broken.
+    try:
+        fault_reviews = db.execute(
+            text("SELECT needs_manual_review FROM public.fault_determinations")
+        ).scalars().all()
+        photos_count = db.execute(text("SELECT COUNT(*) FROM public.photos")).scalar() or 0
+        # Only populated for conversations that happened after this column was
+        # added (see platform/backend/app/models.py's Conversation.last_mood) -
+        # older conversations just have NULL here, which is why this is built
+        # to render an empty state gracefully rather than assume data exists.
+        mood_rows = db.execute(
+            text(
+                "SELECT last_mood, injury_mentioned, dispute_mentioned "
+                "FROM public.conversations WHERE last_mood IS NOT NULL"
+            )
+        ).all()
+        platform_dates = [
+            d for d in db.execute(text("SELECT created_at FROM public.claims")).scalars().all() if d
+        ]
+    except Exception as exc:
+        db.rollback()
+        logger.warning(
+            "AssureX analytics <-> platform bridge query failed (platform "
+            "backend's tables may not exist yet, or this is running without "
+            "the shared Postgres) - falling back to assurex-only stats: %s",
+            exc,
+        )
+        fault_reviews, photos_count, mood_rows, platform_dates = [], 0, [], []
+
     fault_total = len(fault_reviews)
     needs_review_count = sum(1 for r in fault_reviews if r)
-
-    photos_count = db.execute(text("SELECT COUNT(*) FROM public.photos")).scalar() or 0
-
-    # --- Client mood/emotion, from the assistant's note_mood tool ---
-    # Only populated for conversations that happened after this column was
-    # added (see platform/backend/app/models.py's Conversation.last_mood) -
-    # older conversations just have NULL here, which is why this is built
-    # to render an empty state gracefully rather than assume data exists.
-    mood_rows = db.execute(
-        text(
-            "SELECT last_mood, injury_mentioned, dispute_mentioned "
-            "FROM public.conversations WHERE last_mood IS NOT NULL"
-        )
-    ).all()
     mood_counts = Counter(r[0] for r in mood_rows)
     injury_mentioned_count = sum(1 for r in mood_rows if r[1])
     dispute_mentioned_count = sum(1 for r in mood_rows if r[2])
 
     # --- Claims filed over time (both sources combined, by month) ---
     assurex_dates = [c.created_at for c in assurex_claims if c.created_at]
-    platform_dates = [
-        d for d in db.execute(text("SELECT created_at FROM public.claims")).scalars().all() if d
-    ]
     month_counts = Counter(_month_key(d) for d in assurex_dates + platform_dates)
     claims_over_time = [{"month": m, "count": c} for m, c in sorted(month_counts.items())]
 

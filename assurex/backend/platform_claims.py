@@ -32,20 +32,46 @@ back to that same placeholder, same as before, it just no longer ALWAYS
 falls back to it once real photos exist.
 
 Real AI damage hotspots/costs also now come through here, read from
-public.damage_estimates - the output of the YOLOv8 pipeline in
+public.damage_estimates - the output of the YOLO11 pipeline in
 platform/backend/app/damage_detection.py, run per-photo by
 app/worker.py's run_damage_assessment (queued from app/routers/photos.py on
 every upload). Empty until the worker has processed at least one photo for
 a claim, in which case this falls back to the same empty-hotspots shape
 AIEstimation.jsx already renders cleanly.
 """
+import logging
 import os
 from typing import Any, Optional
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from seed import DEFAULT_ESTIMATION_IMAGE, DEFAULT_ESTIMATION_INSIGHTS
+
+logger = logging.getLogger(__name__)
+
+# These queries assume the platform backend's tables (public.claims,
+# public.fault_determinations, ...) already exist in the SAME Postgres
+# database - true once the full docker-compose stack (db + api + worker +
+# assurex-api) has started at least once, but NOT true if only this one
+# container is up while the others are still starting/unhealthy. Without
+# this guard,
+# every GET /api/claims request would 500 with a raw, unhelpful
+# "relation public.claims does not exist" in that situation, taking down the
+# demo/manual claims list along with it even though those don't depend on
+# the platform bridge at all. Each bridge function below instead logs a
+# clear warning server-side and degrades to "no real constats available yet"
+# (empty list / None / False), so the rest of the portal keeps working and
+# the caller gets a clean response instead of an unhandled crash.
+def _platform_unavailable(db: Session, exc: Exception) -> None:
+    db.rollback()  # clears the aborted-transaction state Postgres leaves behind after a failed query
+    logger.warning(
+        "AssureX <-> platform bridge query failed (platform backend's tables "
+        "may not exist yet, or this is running without the shared Postgres) "
+        "- falling back to assurex-only data: %s",
+        exc,
+    )
 
 # Base URL the BROWSER (not this container) uses to reach platform/backend's
 # "api" service directly for photo bytes and the constat PDF - see
@@ -138,73 +164,99 @@ def _claim_row_to_summary(row: dict, photos_count: int) -> dict[str, Any]:
 
 def fetch_platform_claims(db: Session) -> list[dict[str, Any]]:
     """List summaries of every real constat, newest first - merged into GET /api/claims alongside assurex's own demo/manual rows."""
-    rows = db.execute(
-        text(
-            """
-            SELECT
-                c.id, c.status, c.created_at, c.damages_exceed_cap,
-                fd.fault_a_pct, fd.fault_b_pct, fd.needs_manual_review,
-                cp.vehicle_make_model, vd.plate_number
-            FROM public.claims c
-            LEFT JOIN public.fault_determinations fd ON fd.claim_id = c.id
-            LEFT JOIN public.conversations co ON co.claim_id = c.id
-            LEFT JOIN public.client_profiles cp
-                ON cp.conversation_id = co.id AND cp.vehicle_label = 'A'
-            LEFT JOIN public.vehicle_declarations vd
-                ON vd.claim_id = c.id AND vd.vehicle_label = 'A'
-            ORDER BY c.created_at DESC
-            """
-        )
-    ).mappings().all()
+    try:
+        rows = db.execute(
+            text(
+                """
+                SELECT
+                    c.id, c.status, c.created_at, c.damages_exceed_cap,
+                    fd.fault_a_pct, fd.fault_b_pct, fd.needs_manual_review,
+                    cp.vehicle_make_model, vd.plate_number
+                FROM public.claims c
+                LEFT JOIN public.fault_determinations fd ON fd.claim_id = c.id
+                LEFT JOIN public.conversations co ON co.claim_id = c.id
+                LEFT JOIN public.client_profiles cp
+                    ON cp.conversation_id = co.id AND cp.vehicle_label = 'A'
+                LEFT JOIN public.vehicle_declarations vd
+                    ON vd.claim_id = c.id AND vd.vehicle_label = 'A'
+                ORDER BY c.created_at DESC
+                """
+            )
+        ).mappings().all()
+    except (SQLAlchemyError, Exception) as exc:
+        _platform_unavailable(db, exc)
+        return []
 
     if not rows:
         return []
 
-    photo_counts = dict(
-        db.execute(
-            text(
-                "SELECT claim_id, COUNT(*) FROM public.photos "
-                "WHERE claim_id = ANY(:ids) GROUP BY claim_id"
-            ),
-            {"ids": [r["id"] for r in rows]},
-        ).all()
-    )
+    try:
+        photo_counts = dict(
+            db.execute(
+                text(
+                    "SELECT claim_id, COUNT(*) FROM public.photos "
+                    "WHERE claim_id = ANY(:ids) GROUP BY claim_id"
+                ),
+                {"ids": [r["id"] for r in rows]},
+            ).all()
+        )
+    except (SQLAlchemyError, Exception) as exc:
+        _platform_unavailable(db, exc)
+        photo_counts = {}
 
     return [_claim_row_to_summary(dict(r), photo_counts.get(r["id"], 0)) for r in rows]
 
 
 def _photo_urls(db: Session, claim_id: str) -> list[str]:
-    """Real uploaded-photo URLs for one claim, newest first, via platform/backend's new file-serving route."""
-    photo_ids = db.execute(
+    """
+    Real uploaded-photo URLs for one claim, newest first, via
+    platform/backend's file-serving routes. Prefers the boxes-drawn
+    annotated version (.../annotated - app/worker.py's run_damage_assessment
+    saves one per photo once analyzed, see Photo.annotated_s3_key) so an
+    agent sees exactly what the model detected instead of a plain photo;
+    falls back to the raw file (.../file) for a photo the worker hasn't
+    processed yet, so nothing 404s while analysis is still in flight.
+    """
+    rows = db.execute(
         text(
-            "SELECT id FROM public.photos WHERE claim_id = :claim_id ORDER BY uploaded_at DESC"
+            "SELECT id, annotated_s3_key FROM public.photos "
+            "WHERE claim_id = :claim_id ORDER BY uploaded_at DESC"
         ),
         {"claim_id": claim_id},
-    ).scalars().all()
-    return [f"{PLATFORM_API_BASE}/claims/{claim_id}/photos/{photo_id}/file" for photo_id in photo_ids]
+    ).mappings().all()
+    return [
+        f"{PLATFORM_API_BASE}/claims/{claim_id}/photos/{r['id']}/annotated"
+        if r["annotated_s3_key"]
+        else f"{PLATFORM_API_BASE}/claims/{claim_id}/photos/{r['id']}/file"
+        for r in rows
+    ]
 
 
 def fetch_platform_claim_detail(db: Session, claim_id: str) -> Optional[dict[str, Any]]:
-    """GET /api/claims/{id} shape for one real constat, or None if claim_id isn't a real platform claim."""
-    row = db.execute(
-        text(
-            """
-            SELECT
-                c.id, c.status, c.location_text, c.damages_exceed_cap,
-                fd.fault_a_pct, fd.fault_b_pct, fd.needs_manual_review, fd.explanation, fd.rule_id,
-                cp.vehicle_make_model, vd.plate_number
-            FROM public.claims c
-            LEFT JOIN public.fault_determinations fd ON fd.claim_id = c.id
-            LEFT JOIN public.conversations co ON co.claim_id = c.id
-            LEFT JOIN public.client_profiles cp
-                ON cp.conversation_id = co.id AND cp.vehicle_label = 'A'
-            LEFT JOIN public.vehicle_declarations vd
-                ON vd.claim_id = c.id AND vd.vehicle_label = 'A'
-            WHERE c.id = :claim_id
-            """
-        ),
-        {"claim_id": claim_id},
-    ).mappings().first()
+    """GET /api/claims/{id} shape for one real constat, or None if claim_id isn't a real platform claim (or the platform bridge is unavailable - see _platform_unavailable)."""
+    try:
+        row = db.execute(
+            text(
+                """
+                SELECT
+                    c.id, c.status, c.location_text, c.damages_exceed_cap,
+                    fd.fault_a_pct, fd.fault_b_pct, fd.needs_manual_review, fd.explanation, fd.rule_id,
+                    cp.vehicle_make_model, vd.plate_number
+                FROM public.claims c
+                LEFT JOIN public.fault_determinations fd ON fd.claim_id = c.id
+                LEFT JOIN public.conversations co ON co.claim_id = c.id
+                LEFT JOIN public.client_profiles cp
+                    ON cp.conversation_id = co.id AND cp.vehicle_label = 'A'
+                LEFT JOIN public.vehicle_declarations vd
+                    ON vd.claim_id = c.id AND vd.vehicle_label = 'A'
+                WHERE c.id = :claim_id
+                """
+            ),
+            {"claim_id": claim_id},
+        ).mappings().first()
+    except Exception as exc:
+        _platform_unavailable(db, exc)
+        return None
     if row is None:
         return None
 
@@ -232,22 +284,30 @@ def fetch_platform_claim_detail(db: Session, claim_id: str) -> Optional[dict[str
         status_label = "Awaiting client narrative"
         insights = "This constat was filed via the mobile app but the fault engine hasn't run yet - no analysis on file."
 
-    photo_urls = _photo_urls(db, claim_id)
+    try:
+        photo_urls = _photo_urls(db, claim_id)
+    except Exception as exc:
+        _platform_unavailable(db, exc)
+        photo_urls = []
 
-    # Real YOLOv8 damage-detection output (app/damage_detection.py /
+    # Real YOLO11 damage-detection output (app/damage_detection.py /
     # app/worker.py's run_damage_assessment, triggered on every photo
     # upload) - one row per claim, aggregated across every photo analyzed
     # so far. None until at least one photo has finished being processed by
     # the worker, in which case this still cleanly falls back to an empty
     # hotspot list (AIEstimation.jsx's own "No automatic damage detections
     # found" empty state), not a fabricated one.
-    damage_row = db.execute(
-        text(
-            "SELECT hotspots, subtotal, total, insights, damage_percent "
-            "FROM public.damage_estimates WHERE claim_id = :claim_id"
-        ),
-        {"claim_id": claim_id},
-    ).mappings().first()
+    try:
+        damage_row = db.execute(
+            text(
+                "SELECT hotspots, subtotal, total, insights, damage_percent "
+                "FROM public.damage_estimates WHERE claim_id = :claim_id"
+            ),
+            {"claim_id": claim_id},
+        ).mappings().first()
+    except Exception as exc:
+        _platform_unavailable(db, exc)
+        damage_row = None
 
     if damage_row and damage_row["hotspots"]:
         hotspots = damage_row["hotspots"]
@@ -282,12 +342,16 @@ def fetch_platform_claim_detail(db: Session, claim_id: str) -> Optional[dict[str
 
 
 def is_platform_claim(db: Session, claim_id: str) -> bool:
-    return (
-        db.execute(
-            text("SELECT 1 FROM public.claims WHERE id = :claim_id"), {"claim_id": claim_id}
-        ).first()
-        is not None
-    )
+    try:
+        return (
+            db.execute(
+                text("SELECT 1 FROM public.claims WHERE id = :claim_id"), {"claim_id": claim_id}
+            ).first()
+            is not None
+        )
+    except Exception as exc:
+        _platform_unavailable(db, exc)
+        return False
 
 
 def update_platform_claim_status(db: Session, claim_id: str, assurex_status: str) -> bool:
@@ -300,9 +364,13 @@ def update_platform_claim_status(db: Session, claim_id: str, assurex_status: str
     platform_status = _STATUS_FROM_ASSUREX.get(assurex_status)
     if platform_status is None:
         return False
-    result = db.execute(
-        text('UPDATE public.claims SET status = :status WHERE id = :claim_id'),
-        {"status": platform_status, "claim_id": claim_id},
-    )
-    db.commit()
-    return result.rowcount > 0
+    try:
+        result = db.execute(
+            text('UPDATE public.claims SET status = :status WHERE id = :claim_id'),
+            {"status": platform_status, "claim_id": claim_id},
+        )
+        db.commit()
+        return result.rowcount > 0
+    except Exception as exc:
+        _platform_unavailable(db, exc)
+        return False

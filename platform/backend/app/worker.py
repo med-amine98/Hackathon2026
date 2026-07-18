@@ -2,7 +2,7 @@
 Celery worker for the async jobs the architecture plan calls for: damage
 assessment (CV) and photo forensics / fraud scoring. Claims/photos flow
 through a queue instead of blocking the upload request thread, so this can
-take a couple of seconds (YOLOv8 inference) without the client waiting on it
+take a couple of seconds (YOLO11 inference) without the client waiting on it
 — see app/routers/photos.py's upload_photo, which enqueues
 run_damage_assessment right after a photo is saved to MinIO.
 
@@ -12,7 +12,7 @@ order", step 5) — out of scope for the damage-estimation pass.
 from celery import Celery
 
 from app.config import REDIS_URL
-from app.damage_detection import detect_damage, estimate_repair
+from app.damage_detection import annotate_image, detect_damage, estimate_repair
 from app.database import SessionLocal
 from app import models, storage
 
@@ -41,14 +41,20 @@ def _vehicle_make_model_for_claim(db, claim_id: str, vehicle_label: str | None) 
 @celery_app.task(name="run_damage_assessment")
 def run_damage_assessment(claim_id: str, photo_id: str) -> dict:
     """
-    Downloads one uploaded photo, runs YOLOv8 (or the OpenCV fallback — see
-    app/damage_detection.py) damage detection on it, and merges the result
-    into this claim's single DamageEstimate row: new hotspots from this
-    photo are appended to whatever earlier photos already contributed,
-    subtotal/total/damage_percent are recomputed over the combined set, and
+    Downloads one uploaded photo, runs YOLO11/CarDD (or the OpenCV fallback
+    — see app/damage_detection.py) damage detection on it, draws the
+    detected boxes on the photo and saves that annotated copy back to MinIO
+    (Photo.annotated_s3_key), and merges the cost/hotspot result into this
+    claim's single DamageEstimate row: new hotspots from this photo are
+    appended to whatever earlier photos already contributed, subtotal/
+    total/damage_percent are recomputed over the combined set, and
     photos_analyzed is incremented — so opening the AI Estimation panel
     after 3 photos shows all 3 photos' findings together, not just the last
-    one's.
+    one's. The claim's fault/blame split (fault_a_pct/fault_b_pct) is a
+    separate, deterministic computation (app/fault_engine.py, run once both
+    parties have declared their circumstances) — not tied to photo count,
+    already surfaced alongside this estimate wherever the frontend reads
+    both (see assurex/backend/platform_claims.py's fetch_platform_claim_detail).
     """
     with SessionLocal() as db:
         photo = db.get(models.Photo, photo_id)
@@ -64,6 +70,19 @@ def run_damage_assessment(claim_id: str, photo_id: str) -> dict:
         vehicle_make_model = _vehicle_make_model_for_claim(db, claim_id, photo.vehicle_label)
         detections = detect_damage(image_bytes)
         result = estimate_repair(detections, vehicle_make_model=vehicle_make_model)
+
+        # Save a copy of this exact photo with every detection's box +
+        # "class conf%" label drawn on it, so the portal can show what the
+        # model actually saw instead of just a cost line with no visual.
+        # Best-effort: a MinIO hiccup here shouldn't lose the cost/hotspot
+        # result that already succeeded above.
+        try:
+            annotated_bytes = annotate_image(image_bytes, detections)
+            annotated_key = f"{claim_id}/{photo.vehicle_label or 'unknown'}/annotated/{photo_id}.png"
+            storage.upload_bytes(annotated_key, annotated_bytes, content_type="image/png")
+            photo.annotated_s3_key = annotated_key
+        except Exception:
+            pass
 
         estimate = db.query(models.DamageEstimate).filter_by(claim_id=claim_id).first()
         if estimate is None:

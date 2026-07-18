@@ -11,10 +11,13 @@ Reuses that same file's approach: raw, schema-qualified SQL against
 mounted in, so importing its ORM models isn't an option) rather than a
 second copy of its models.
 """
+import logging
 from typing import Any, Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 
 def _initials(first_name: Optional[str], last_name: Optional[str], email: str) -> str:
@@ -68,29 +71,52 @@ def _client_row_to_summary(row: dict, claims_count: int) -> dict[str, Any]:
 
 
 def fetch_mobile_clients(db: Session) -> list[dict[str, Any]]:
-    """List summaries of every real mobile-app user, newest first - merged into GET /api/clients alongside assurex's own demo/manual rows."""
-    rows = db.execute(
-        text(
-            """
-            SELECT id, email, first_name, last_name, phone, created_at,
-                   cin, plate_number, car_category, insurance_date, payment_status
-            FROM mobile.users
-            ORDER BY created_at DESC
-            """
+    """List summaries of every real mobile-app user, newest first - merged into GET /api/clients alongside assurex's own demo/manual rows.
+
+    Degrades to an empty list (logging a warning) instead of a 500 if the
+    mobile backend's `mobile` schema/tables aren't reachable yet - e.g.
+    before the mobile-api container has run its own migrations against the
+    shared Postgres. Same fallback pattern as platform_claims.py's bridge
+    functions, and for the same reason: this endpoint also serves assurex's
+    own demo/manual clients, which have nothing to do with this bridge and
+    shouldn't fail alongside it.
+    """
+    try:
+        rows = db.execute(
+            text(
+                """
+                SELECT id, email, first_name, last_name, phone, created_at,
+                       cin, plate_number, car_category, insurance_date, payment_status
+                FROM mobile.users
+                ORDER BY created_at DESC
+                """
+            )
+        ).mappings().all()
+    except Exception as exc:
+        db.rollback()
+        logger.warning(
+            "AssureX <-> mobile bridge query failed (mobile backend's tables "
+            "may not exist yet, or this is running without the shared "
+            "Postgres) - falling back to assurex-only clients: %s", exc,
         )
-    ).mappings().all()
+        return []
 
     if not rows:
         return []
 
-    claims_counts = dict(
-        db.execute(
-            text(
-                "SELECT user_id, COUNT(*) FROM mobile.declarations "
-                "WHERE user_id = ANY(:ids) GROUP BY user_id"
-            ),
-            {"ids": [r["id"] for r in rows]},
-        ).all()
-    )
+    try:
+        claims_counts = dict(
+            db.execute(
+                text(
+                    "SELECT user_id, COUNT(*) FROM mobile.declarations "
+                    "WHERE user_id = ANY(:ids) GROUP BY user_id"
+                ),
+                {"ids": [r["id"] for r in rows]},
+            ).all()
+        )
+    except Exception as exc:
+        db.rollback()
+        logger.warning("AssureX <-> mobile claims-count query failed: %s", exc)
+        claims_counts = {}
 
     return [_client_row_to_summary(dict(r), claims_counts.get(r["id"], 0)) for r in rows]
