@@ -74,13 +74,18 @@ class PreventionBloc extends Bloc<PreventionEvent, PreventionState> {
     try {
       if (_profileRepository != null) {
         final profile = await _profileRepository!.getProfile();
-        if (profile.isNotEmpty && profile['vehicle_id'] != null) {
+        // ProfileResponse (backend/app/schemas/profile.py) has no
+        // "vehicle_id" field at all — it's always null, so this check used
+        // to always fail and silently fall through to the hardcoded Toyota
+        // Corolla stub even when a real profile existed. Check the field
+        // that's actually present instead (vehicle_make).
+        if (profile.isNotEmpty && profile['vehicle_make'] != null) {
           return VehicleModel(
-            id: profile['vehicle_id']?.toString() ?? '1',
+            id: profile['user_id']?.toString() ?? '1',
             make: profile['vehicle_make'] as String? ?? 'Toyota',
             model: profile['vehicle_model'] as String? ?? 'Corolla',
             year: profile['vehicle_year'] as int? ?? 2020,
-            licensePlate: profile['license_plate'] as String? ?? '123 TUN 456',
+            licensePlate: '123 TUN 456', // not collected by the profile schema
             annualKm: profile['annual_km'] as int? ?? 15000,
             usage: profile['vehicle_usage'] as String? ?? 'quotidiennement',
             parkingType: profile['parking_type'] as String? ?? 'garage',

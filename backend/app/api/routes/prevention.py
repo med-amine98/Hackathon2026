@@ -93,7 +93,7 @@ async def _get_weather() -> dict:
         params = {
             "lat": 36.8065,
             "lon": 10.1815,
-            "appid": settings.OPENWEATHER_API_KEY,
+            "appid": settings.openweather_api_key,
             "units": "metric",
             "lang": "fr"
         }
@@ -128,7 +128,7 @@ async def _get_weather() -> dict:
 async def _get_traffic() -> List[dict]:
     """Récupérer les données de trafic depuis TomTom"""
     try:
-        api_key = settings.TOMTOM_API_KEY
+        api_key = settings.tomtom_api_key
         if not api_key or api_key == "VOTRE_CLE_TOMTOM":
             return [{"type": "Information", "description": "Trafic fluide", "location": "Tunis", "delay": 0}]
         

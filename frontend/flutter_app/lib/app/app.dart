@@ -17,6 +17,8 @@ import 'package:ai_insurance_advisor/presentation/bloc/conseil/conseil_bloc.dart
 import 'package:ai_insurance_advisor/presentation/bloc/prevention/prevention_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/conseil_chat/conseil_chat_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/declaration_chat/declaration_chat_bloc.dart';
+import 'package:ai_insurance_advisor/presentation/bloc/agent_chat/agent_chat_bloc.dart';
+import 'package:ai_insurance_advisor/presentation/widgets/agent_chat_bubble.dart';
 
 class AIInsuranceApp extends StatelessWidget {
   const AIInsuranceApp({super.key});
@@ -84,6 +86,11 @@ class AIInsuranceApp extends StatelessWidget {
         BlocProvider<DeclarationChatBloc>(
           create: (context) => getIt<DeclarationChatBloc>(),
         ),
+
+        // ─── Agent Chat (floating bubble, linked to the agent) ────────────
+        BlocProvider<AgentChatBloc>(
+          create: (context) => getIt<AgentChatBloc>(),
+        ),
       ],
       child: MaterialApp.router(
         title: 'AssurIA - Assistant IA',
@@ -92,6 +99,18 @@ class AIInsuranceApp extends StatelessWidget {
         themeMode: ThemeMode.system,
         routerConfig: AppRouter.router,
         debugShowCheckedModeBanner: false,
+        // Overlays the floating agent chat bubble above whatever screen
+        // go_router is currently showing, app-wide — MaterialApp.router has
+        // no persistent Scaffold of its own to attach a FAB to, so this is
+        // the one place a truly global floating widget can be mounted.
+        builder: (context, child) {
+          return Stack(
+            children: [
+              if (child != null) child,
+              const AgentChatBubble(),
+            ],
+          );
+        },
       ),
     );
   }

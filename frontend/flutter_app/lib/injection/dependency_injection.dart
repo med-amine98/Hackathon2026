@@ -4,12 +4,15 @@ import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ai_insurance_advisor/data/datasources/local/storage_service.dart';
 import 'package:ai_insurance_advisor/data/datasources/remote/api_client.dart';
+import 'package:ai_insurance_advisor/data/datasources/remote/agent_api_client.dart';
 import 'package:ai_insurance_advisor/data/repositories/auth_repository.dart';
 import 'package:ai_insurance_advisor/data/repositories/chat_repository.dart';
+import 'package:ai_insurance_advisor/data/repositories/agent_chat_repository.dart';
 import 'package:ai_insurance_advisor/data/repositories/product_repository.dart';
 import 'package:ai_insurance_advisor/data/repositories/profile_repository.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/auth/auth_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/chat/chat_bloc.dart';
+import 'package:ai_insurance_advisor/presentation/bloc/agent_chat/agent_chat_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/profile/profile_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/car_health/car_health_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/notifications/notifications_bloc.dart';
@@ -29,12 +32,16 @@ Future<void> setupDependencies() async {
 
   getIt.registerSingleton<StorageService>(StorageService(prefs));
   getIt.registerSingleton<ApiClient>(ApiClient(prefs: prefs));
+  getIt.registerSingleton<AgentApiClient>(AgentApiClient());
 
   getIt.registerSingleton<AuthRepository>(
     AuthRepository(getIt.get<StorageService>(), getIt.get<ApiClient>()),
   );
   getIt.registerSingleton<ChatRepository>(
     ChatRepository(getIt.get<ApiClient>()),
+  );
+  getIt.registerSingleton<AgentChatRepository>(
+    AgentChatRepository(getIt.get<AgentApiClient>()),
   );
   getIt.registerSingleton<ProductRepository>(
     ProductRepository(getIt.get<ApiClient>()),
@@ -52,6 +59,13 @@ Future<void> setupDependencies() async {
   );
   getIt.registerFactory<ChatBloc>(
     () => ChatBloc(chatRepository: getIt.get<ChatRepository>()),
+  );
+  // Singleton (not a factory): the floating agent chat bubble is mounted
+  // once app-wide (see app/app.dart) and reopened/closed as a bottom sheet
+  // — it needs the SAME bloc instance every time so the conversation
+  // (and conversation_id) survive closing and reopening the bubble.
+  getIt.registerLazySingleton<AgentChatBloc>(
+    () => AgentChatBloc(repository: getIt.get<AgentChatRepository>()),
   );
   getIt.registerFactory<ProfileBloc>(
     () => ProfileBloc(getIt.get<ProfileRepository>()),

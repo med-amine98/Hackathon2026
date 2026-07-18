@@ -1,3 +1,13 @@
+# DEPRECATED — this used to spin up its own separate Postgres for the mobile
+# backend. The mobile backend now shares the ONE Postgres database used by
+# the agent's platform backend (its own "mobile" schema in that same
+# instance, see app/database/connection.py), so everything now runs from
+# the root-level docker-compose.yml's "mobile-api" service instead. Left in
+# place for reference/standalone local dev only — don't run this alongside
+# the root compose file (it would stand up a second, unrelated Postgres and
+# defeat the point):
+#   cd /home/saoussen/insurance/Hackathon2026 && docker compose up --build
+
 version: '3.9'
 
 services:

@@ -7,13 +7,13 @@ class Declaration(Base):
     __tablename__ = "declarations"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+
     # Informations du véhicule
     vehicle_make = Column(String(50), nullable=False)
     vehicle_model = Column(String(50), nullable=False)
     vehicle_year = Column(Integer)
-    license_plate = Column(String(20))
+    license_plate = Column(String(20), index=True)
     
     # Informations du conducteur
     driver_name = Column(String(100), nullable=False)
@@ -28,10 +28,10 @@ class Declaration(Base):
     accident_description = Column(Text, nullable=False)
     
     # Images (stockées comme URLs)
-    images = Column(JSON, default=[])
-    
+    images = Column(JSON, default=list)
+
     # Analyse IA
-    analysis = Column(JSON, default={})
+    analysis = Column(JSON, default=dict)
     
     # Statut
     status = Column(String(20), default="en_attente")

@@ -3,9 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app.core.config import settings
-from app.database.connection import engine, Base
+from app.database.connection import engine, Base, ensure_schema
 from app.api.routes import auth, chat, profile, products, recommendations ,declaration, conseil, prevention
-# ✅ Créer les tables
+# ✅ Créer le schéma (Postgres partagé avec le backend de l'agent) puis les tables
+ensure_schema()
 Base.metadata.create_all(bind=engine)
 
 # ✅ Créer l'application FastAPI

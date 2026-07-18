@@ -16,6 +16,14 @@ class ApiConstants {
   static const String products = '/products';
   static const String recommendations = '/recommendations';
 
+  // ── Agent (platform/backend — accident-intake chat, same Postgres as
+  // above, different service/port) ────────────────────────────────────────
+  static String get agentBaseUrl {
+    return dotenv.env['AGENT_API_URL'] ?? 'http://localhost:8010';
+  }
+
+  static const String agentChatMessage = '/chat/message';
+
   // ── OpenAI ───────────────────────────────────────────────────────────────
   static String get openAIApiKey {
     return dotenv.env['OPENAI_API_KEY'] ?? 'VOTRE_CLE_OPENAI';

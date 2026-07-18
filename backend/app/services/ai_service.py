@@ -8,7 +8,7 @@ class AIService:
     async def analyze_declaration(description: str, driver_name: str, driver_age: int, vehicle: str) -> dict:
         """Analyser une déclaration avec OpenAI"""
         try:
-            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+            client = openai.OpenAI(api_key=settings.openai_api_key)
             
             prompt = f"""
             Analyse cette déclaration de sinistre automobile:
@@ -52,7 +52,7 @@ class AIService:
     async def get_personalized_advice(age: int, experience_years: int, vehicle: str, usage: str, annual_km: int) -> str:
         """Obtenir des conseils personnalisés"""
         try:
-            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+            client = openai.OpenAI(api_key=settings.openai_api_key)
             
             prompt = f"""
             Donne des conseils personnalisés pour un conducteur de {age} ans avec {experience_years} ans d'expérience.
@@ -81,22 +81,22 @@ class AIService:
             
         except Exception as e:
             print(f"❌ AI error: {e}")
-            return """
+            return f"""
             📋 **Conseils personnalisés**
-            
+
             **1. Garanties recommandées :**
             • Protection vol et incendie
             • Protection juridique
             • Assistance 24/7
-            
+
             **2. Facteurs de risque :**
-            • Conducteur de {age} ans avec {experience} ans d'expérience
+            • Conducteur de {age} ans avec {experience_years} ans d'expérience
             • Utilisation {usage}
-            • {km} km par an
-            
+            • {annual_km} km par an
+
             **3. Conseils de sécurité :**
             • Entretenez régulièrement votre véhicule
             • Adaptez votre vitesse aux conditions
-            
+
             **4. Coût estimé :** entre 80 et 120 TND/mois
             """

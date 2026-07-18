@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ai_insurance_advisor/core/constants/api_constants.dart';
 import 'package:ai_insurance_advisor/models/declaration_model.dart';
 
@@ -13,12 +14,23 @@ class DeclarationService {
       // Analyser la déclaration avec IA (dégrade proprement si la clé
       // OpenAI n'est pas configurée — voir _analyzeWithAI)
       final analysis = await _analyzeWithAI(declaration);
-      
+
+      // POST /declarations/ requires auth (Depends(get_current_user) on the
+      // backend — see backend/app/api/routes/declaration.py) and the
+      // trailing slash matters: without it FastAPI 307-redirects, which is
+      // fragile for a cross-origin POST from Flutter web. This call used a
+      // bare, unauthenticated http.post (bypassing ApiClient's Dio
+      // interceptor entirely), so every submission was silently failing
+      // with 401 — fixed to attach the stored bearer token directly.
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
       // Sauvegarder la déclaration
       final response = await http.post(
-        Uri.parse('${ApiConstants.baseUrl}/declarations'),
+        Uri.parse('${ApiConstants.baseUrl}/declarations/'),
         headers: {
           'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
         },
         body: jsonEncode({
           ...declaration.toJson(),

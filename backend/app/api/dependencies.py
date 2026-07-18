@@ -6,7 +6,7 @@ from app.core.security import decode_token
 from app.core.exceptions import CredentialsException
 from app.models.user import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login/form")
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     payload = decode_token(token)

@@ -1,0 +1,8 @@
+# Dependencies for the assistant/ core package only — no OpenAI client (the
+# LLM calls in platform/backend/app/routers/chat.py go through plain
+# `requests` against any OpenAI-compatible endpoint). Anything importing
+# this package directly only needs this file.
+requests==2.32.3
+pymupdf==1.24.13
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10

@@ -6,8 +6,8 @@ class Conversation(Base):
     __tablename__ = "conversations"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+
     # Conversation metadata
     status = Column(String, default="active")  # active, completed, abandoned
     intent = Column(String)  # buy_car_insurance, get_quote, etc.
@@ -28,7 +28,7 @@ class Message(Base):
     __tablename__ = "messages"
     
     id = Column(Integer, primary_key=True, index=True)
-    conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False)
+    conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False, index=True)
     
     role = Column(String, nullable=False)  # user, assistant, system
     content = Column(Text, nullable=False)

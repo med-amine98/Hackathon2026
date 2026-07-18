@@ -7,7 +7,7 @@ class Conseil(Base):
     __tablename__ = "conseils"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     
     # Profil utilisateur
     age = Column(Integer)
@@ -25,7 +25,7 @@ class Conseil(Base):
     risk_score = Column(Float)
     risk_analysis = Column(Text)
     ia_advice = Column(Text)
-    garanties = Column(JSON, default=[])
+    garanties = Column(JSON, default=list)
     
     # Dates
     created_at = Column(DateTime(timezone=True), server_default=func.now())

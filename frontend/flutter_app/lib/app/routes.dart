@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ai_insurance_advisor/injection/dependency_injection.dart';
@@ -39,7 +40,16 @@ class GoRouterRefreshStream extends ChangeNotifier {
 }
 
 class AppRouter {
+  // Exposed so widgets mounted OUTSIDE the routed page tree — like the
+  // floating agent chat bubble in app/app.dart's MaterialApp.router
+  // `builder`, which sits above/outside go_router's own Navigator — can
+  // still open a dialog/bottom sheet. Standard go_router pattern for
+  // exactly this ("Navigator operation requested with a context that does
+  // not include a Navigator" otherwise). See agent_chat_bubble.dart.
+  static final rootNavigatorKey = GlobalKey<NavigatorState>();
+
   static final router = GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/onboarding',
     refreshListenable: GoRouterRefreshStream(getIt<AuthBloc>().stream),
     redirect: (context, state) {

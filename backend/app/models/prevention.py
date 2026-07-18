@@ -7,22 +7,22 @@ class Prevention(Base):
     __tablename__ = "preventions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+
     # Données météo
-    weather_data = Column(JSON, default={})
-    
+    weather_data = Column(JSON, default=dict)
+
     # Données trafic
-    traffic_data = Column(JSON, default=[])
-    
+    traffic_data = Column(JSON, default=list)
+
     # Rappels maintenance
-    maintenances = Column(JSON, default=[])
-    
+    maintenances = Column(JSON, default=list)
+
     # Conseils sécurité
-    safety_tips = Column(JSON, default=[])
-    
+    safety_tips = Column(JSON, default=list)
+
     # Alertes
-    alerts = Column(JSON, default=[])
+    alerts = Column(JSON, default=list)
     
     # Dates
     created_at = Column(DateTime(timezone=True), server_default=func.now())

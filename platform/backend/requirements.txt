@@ -1,0 +1,19 @@
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+pydantic==2.10.3
+python-multipart==0.0.19
+pillow==11.0.0
+imagehash==4.3.1
+minio==7.2.12
+celery==5.4.0
+redis==5.2.1
+python-dotenv==1.0.1
+# For app/routers/chat.py's calls to the LLM's OpenAI-compatible endpoint,
+# and transitively for assistant/geocoding.py (Nominatim) once assistant/ is
+# mounted in — same version assistant/requirements.txt pins.
+requests==2.32.3
+# For assistant/constat_pdf.py's constat PDF generation, called from
+# app/routers/chat.py — same version assistant/requirements.txt pins.
+pymupdf==1.24.13
