@@ -72,7 +72,7 @@ services:
       # LLM tool-use loop for /chat (see app/routers/chat.py, wraps assistant/)
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
-      LLM_MODEL: ${LLM_MODEL:-gemini-2.5-flash}
+      LLM_MODEL: ${LLM_MODEL:-gemini-3.5-flash}
     ports:
       # Host 8010 -> container 8000 (host 8000 collided with another local
       # process). Container-internal port is unchanged, so worker/other

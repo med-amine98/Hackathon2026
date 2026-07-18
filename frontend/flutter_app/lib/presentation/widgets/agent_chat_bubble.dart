@@ -5,6 +5,8 @@
 // once in app/app.dart's MaterialApp.router `builder`, so it floats above
 // whichever screen go_router is currently showing.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -22,8 +24,24 @@ import 'package:ai_insurance_advisor/presentation/widgets/chat_bubble.dart';
 /// builder). Renders nothing at all pre-login instead of just hiding the
 /// button, so an unauthenticated visitor can't reach the agent chat by any
 /// route (deep link, dev tools, etc.).
-class AgentChatBubble extends StatelessWidget {
+///
+/// Draggable: starts bottom-right but can be dragged anywhere on screen so
+/// it never permanently blocks content underneath it (a FAB fixed in one
+/// corner can sit on top of a button/field on some screens). Position is
+/// kept in State, not persisted — resets to the default corner on a full
+/// app restart, which is fine for a floating helper like this.
+class AgentChatBubble extends StatefulWidget {
   const AgentChatBubble({super.key});
+
+  @override
+  State<AgentChatBubble> createState() => _AgentChatBubbleState();
+}
+
+class _AgentChatBubbleState extends State<AgentChatBubble> {
+  static const double _size = 56;
+  static const double _margin = 16;
+
+  Offset? _offset; // top-left corner; null until first build sets the default
 
   @override
   Widget build(BuildContext context) {
@@ -33,10 +51,28 @@ class AgentChatBubble extends StatelessWidget {
     }
     final user = authState.user;
 
+    final size = MediaQuery.of(context).size;
+    final safePadding = MediaQuery.of(context).padding;
+    final minDx = _margin;
+    final maxDx = math.max(minDx, size.width - _size - _margin);
+    final minDy = safePadding.top + _margin;
+    final maxDy = math.max(minDy, size.height - _size - _margin - safePadding.bottom);
+
+    _offset ??= Offset(maxDx, math.max(minDy, maxDy - 24));
+
+    double clamp(double value, double min, double max) => value < min ? min : (value > max ? max : value);
+
     return Positioned(
-      right: 16,
-      bottom: 24,
-      child: SafeArea(
+      left: clamp(_offset!.dx, minDx, maxDx),
+      top: clamp(_offset!.dy, minDy, maxDy),
+      child: GestureDetector(
+        onPanUpdate: (details) {
+          setState(() {
+            final newDx = clamp(_offset!.dx + details.delta.dx, minDx, maxDx);
+            final newDy = clamp(_offset!.dy + details.delta.dy, minDy, maxDy);
+            _offset = Offset(newDx, newDy);
+          });
+        },
         child: FloatingActionButton(
           heroTag: 'agent-chat-bubble',
           backgroundColor: AppTheme.secondaryColor,
@@ -81,6 +117,10 @@ class _AgentChatSheet extends StatefulWidget {
 class _AgentChatSheetState extends State<_AgentChatSheet> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  // Tracks the last constat URL we already auto-opened, so a rebuild (or
+  // the assistant regenerating the SAME draft again) doesn't keep popping
+  // a new tab open every time — only a genuinely new/changed URL triggers it.
+  String? _lastOpenedConstatUrl;
 
   @override
   void dispose() {
@@ -172,6 +212,21 @@ class _AgentChatSheetState extends State<_AgentChatSheet> {
     return BlocConsumer<AgentChatBloc, AgentChatState>(
       listener: (context, state) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+
+        // Auto-open the constat the moment the assistant produces/updates
+        // one, instead of making the user hunt for and tap the small link.
+        // The "Voir le constat" button (see _buildConstatLink) stays as a
+        // manual fallback/re-open — some browsers block a tab opened from
+        // an async callback like this one (not a direct click) unless
+        // pop-ups are allowed for this site, so the button is the reliable
+        // path if the automatic open gets silently blocked.
+        if (state.messages.isNotEmpty) {
+          final latestUrl = state.messages.last.constatPdfUrl;
+          if (latestUrl != null && latestUrl != _lastOpenedConstatUrl) {
+            _lastOpenedConstatUrl = latestUrl;
+            _openConstatPdf(latestUrl);
+          }
+        }
       },
       builder: (context, state) {
         if (state.messages.isEmpty) {

@@ -29,4 +29,7 @@ IDA_DAMAGE_CAP_TND = float(os.getenv("IDA_DAMAGE_CAP_TND", "2000"))
 # replies with a "not configured" message instead of calling out to an LLM.
 LLM_API_KEY = os.getenv("LLM_API_KEY")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
-LLM_MODEL = os.getenv("LLM_MODEL", "gemini-2.5-flash")
+# gemini-2.5-flash was retired for new users (Google returns 404 "no longer
+# available to new users" — confirmed against a live account). gemini-3.5-
+# flash is the current generally-available flash model as of mid-2026.
+LLM_MODEL = os.getenv("LLM_MODEL", "gemini-3.5-flash")
