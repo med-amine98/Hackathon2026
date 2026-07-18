@@ -66,6 +66,27 @@ USERS = [
         "insurance_date": _tn_date(2026, 6, 22),
         "payment_status": "paid",
     },
+    {
+        # Deliberately a "clean record" demo account - a real registered
+        # vehicle/policy on file but no constat/claim ever filed through the
+        # agent chat (see assurex/backend/mobile_clients.py, which counts
+        # claims via public.vehicle_declarations joined on mobile_user_id -
+        # since no claim/conversation is ever seeded for this user, that
+        # count is correctly zero, not a fake/hardcoded 0). Useful for
+        # demoing the client list/portfolio view with a client who has never
+        # had an incident, not just ones mid-claim.
+        "email": "nour.ayari@gmail.com",
+        "first_name": "Nour",
+        "last_name": "Ayari",
+        "phone": "+216 23 741 852",
+        "is_active": True,
+        "is_verified": True,
+        "cin": "09876543",
+        "plate_number": "189 TUN 1123",
+        "car_category": "Familiale",
+        "insurance_date": _tn_date(2026, 5, 10),
+        "payment_status": "paid",
+    },
 ]
 
 

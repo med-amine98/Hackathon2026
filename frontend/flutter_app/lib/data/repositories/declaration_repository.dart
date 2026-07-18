@@ -57,7 +57,7 @@ class DeclarationRepository {
         description: 'Accident avec un autre véhicule sur la route de la Marsa',
         status: 'en_attente',
         date: DateTime.now().subtract(const Duration(days: 2)),
-        vehicleInfo: 'Peugeot 208 - 2021',
+        vehicleInfo: 'Renault Symbol - 2019',
         imageUrl: null,
         details: {
           'lieu': 'Route de la Marsa, Tunis',
@@ -71,11 +71,11 @@ class DeclarationRepository {
         description: 'Vol de ma voiture devant le centre commercial',
         status: 'en_cours',
         date: DateTime.now().subtract(const Duration(days: 5)),
-        vehicleInfo: 'Renault Clio - 2019',
+        vehicleInfo: 'Peugeot 208 - 2021',
         imageUrl: null,
         details: {
           'lieu': 'Centre commercial Lac, Tunis',
-          'date_vol': '2024-01-15',
+          'date_vol': '2026-01-15',
           'plainte': 'Déposée au poste de police',
         },
       ),

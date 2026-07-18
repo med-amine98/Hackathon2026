@@ -39,6 +39,14 @@ DEFAULT_ESTIMATION_INSIGHTS = (
 # insights text. Car photo URLs (image_url/thumbnails) are the one thing
 # left completely untouched, per instruction - never generated, replaced,
 # or swapped for different stock photos.
+#
+# Each claim below now sets client_id, and its vehicle/vehicle_type matches
+# that client's own car_category on file (CLIENTS below) - previously these
+# were two disconnected datasets (e.g. a claim on a Berline while its
+# supposed owner's only registered car was a Citadine). CLIENTS' own
+# claims_history entries reference these same CLM-xxxx ids and totals
+# instead of independent made-up "#CL-xxxxx" numbers, so a client's profile
+# and the claims pipeline agree with each other.
 CLAIMS = [
     {
         "id": "CLM-8291",
@@ -49,8 +57,11 @@ CLAIMS = [
         "risk_text": "Élevé (85%)",
         "risk_color": "text-error",
         "status": "new",
-        "vehicle": "Peugeot 208 - Collision Avant",
-        "vehicle_type": "Citadine",
+        # Client c-1 (Mohamed Ben Salah) - car_category "Berline", plate
+        # "146 TUN 8823".
+        "client_id": "c-1",
+        "vehicle": "Peugeot 301 - Collision Avant",
+        "vehicle_type": "Berline",
         "agent_initials": "MK",
         "time_left": "Reste 2h",
         "photos_count": 5,
@@ -79,6 +90,9 @@ CLAIMS = [
         "risk_text": "Faible (15%)",
         "risk_color": "text-green-600",
         "status": "estimation",
+        # Client c-2 (Sarra Chebbi) - commercial fleet, car_category
+        # "Utilitaire", plate "212 TUN 4471".
+        "client_id": "c-2",
         "vehicle": "Peugeot Partner - Rayure légère",
         "vehicle_type": "Utilitaire",
         "agent_initials": "AS",
@@ -105,22 +119,28 @@ CLAIMS = [
         "risk_text": "Moyen (45%)",
         "risk_color": "text-orange-600",
         "status": "review",
-        "vehicle": "Volkswagen Tiguan - Choc léger",
-        "vehicle_type": "SUV",
+        # Client c-2 (Sarra Chebbi) - second fleet vehicle, same
+        # "Utilitaire" category as her plate on file - referenced by her own
+        # claims_history entry below ("Dommages flotte", 9 800 DT).
+        "client_id": "c-2",
+        "vehicle": "Renault Kangoo - Dommages flotte",
+        "vehicle_type": "Utilitaire",
         "agent_initials": "YB",
         "time_left": "Reste 1j",
         "photos_count": 3,
         "ai_estimate": None,
         "ai_progress": None,
-        # No AI estimation on file - same fallback content the old
-        # in-memory version generated on the fly for this claim.
-        "estimation_status": "AI Verification Required",
+        "estimation_status": "Analyse IA terminée",
         "image_url": DEFAULT_ESTIMATION_IMAGE,
         "thumbnails": [],
-        "hotspots": [],
-        "subtotal": 0.0,
-        "total": 0.0,
-        "insights": DEFAULT_ESTIMATION_INSIGHTS,
+        "hotspots": [
+            {"id": "hs-4", "top": "55%", "left": "30%", "title": "Portière arrière", "description": "Enfoncement profond, charnière à vérifier.", "severity": "Moderate", "cost": 3200.00, "confidence": 88},
+            {"id": "hs-5", "top": "60%", "left": "70%", "title": "Aile arrière", "description": "Tôle déformée, peinture éclatée.", "severity": "Moderate", "cost": 2800.00, "confidence": 82},
+            {"id": "hs-6", "top": "70%", "left": "50%", "title": "Pare-chocs arrière", "description": "Fissuré sur toute la largeur, remplacement nécessaire.", "severity": "High", "cost": 3800.00, "confidence": 91},
+        ],
+        "subtotal": 9800.00,
+        "total": 9800.00,
+        "insights": "Dommages multiples à l'arrière du véhicule utilitaire, compatibles avec un choc en marche arrière. Nécessite une validation manuelle avant indemnisation flotte.",
     },
     {
         "id": "CLM-94002",
@@ -131,6 +151,11 @@ CLAIMS = [
         "risk_text": "Faible (12%)",
         "risk_color": "text-green-600",
         "status": "completed",
+        # Client c-3 (Elyes Trabelsi) - Santé Famille Premium policyholder;
+        # a medical claim has no car/hotspots by nature, hence no category
+        # mismatch to worry about (his own car - a Citadine - has never had
+        # a claim, matching his "no vehicle claims" profile note below).
+        "client_id": "c-3",
         "vehicle": "Sinistre Santé - Consultation externe",
         "vehicle_type": "Assurance Santé",
         "agent_initials": "HN",
@@ -177,8 +202,8 @@ CLIENTS = [
             {"name": "Assistance Routière", "number": "POL-8812-MB", "premium": "120 DT/an", "status": "Active"},
         ],
         "claims_history": [
-            {"id": "#CL-92834", "date": "10/05/2026", "amount": "4 500,00 DT", "status": "Pending", "type": "Collision véhicule"},
-            {"id": "#CL-77281", "date": "14/11/2024", "amount": "1 200,00 DT", "status": "Paid", "type": "Bris de glace"},
+            {"id": "CLM-8291", "date": "17/07/2026", "amount": "3 090,00 DT", "status": "Pending", "type": "Collision véhicule"},
+            {"id": "CLM-77281", "date": "14/11/2024", "amount": "1 200,00 DT", "status": "Paid", "type": "Bris de glace"},
         ],
         "notes": [
             {"id": 1, "date": "2026-07-16 14:32", "author": "Alex (Agent)", "text": "Appel du client concernant le sinistre collision en cours. Photos de l'accident manquantes à documenter."},
@@ -208,7 +233,8 @@ CLIENTS = [
             {"name": "Flotte Responsabilité & Marchandises", "number": "POL-3392-SC", "premium": "18 500 DT/an", "status": "Active"},
         ],
         "claims_history": [
-            {"id": "#CL-88219", "date": "02/07/2026", "amount": "9 800,00 DT", "status": "Under AI Review", "type": "Dommages flotte"},
+            {"id": "CLM-88219", "date": "02/07/2026", "amount": "9 800,00 DT", "status": "Under AI Review", "type": "Dommages flotte"},
+            {"id": "CLM-9901", "date": "28/06/2026", "amount": "1 240,00 DT", "status": "AI Estimate", "type": "Rayure carrosserie"},
         ],
         "notes": [
             {"id": 1, "date": "2026-07-11 11:20", "author": "Alex (Agent)", "text": "Sarra a demandé une mise à jour sur le sinistre de la flotte. Analyse photo IA en cours de validation."},
@@ -237,7 +263,9 @@ CLIENTS = [
             {"name": "Santé Famille Premium", "number": "POL-1192-ET", "premium": "180 DT/mois", "status": "Active"},
             {"name": "Assurance Vie 20 ans", "number": "POL-5528-ET", "premium": "60 DT/mois", "status": "Active"},
         ],
-        "claims_history": [],
+        "claims_history": [
+            {"id": "CLM-94002", "date": "05/07/2026", "amount": "350,00 DT", "status": "Paid", "type": "Frais médicaux"},
+        ],
         "notes": [
             {"id": 1, "date": "2026-07-17 16:45", "author": "Alex (Agent)", "text": "Bilan annuel du portefeuille effectué avec Elyes. Client très satisfait, score de fidélité stable à 94%."},
         ],

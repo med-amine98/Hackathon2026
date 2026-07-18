@@ -38,6 +38,18 @@ class Claim(Base):
     total = Column(Float, default=0.0)
     insights = Column(Text, nullable=True)
 
+    # Links this claim to the client whose car it actually is (seed.py's
+    # CLAIMS/CLIENTS previously had zero relationship between them - a
+    # claim's `vehicle` text and a client's `plate_number`/`car_category`
+    # could contradict each other, e.g. a claim on a Berline for a client
+    # whose only car on file is a Citadine). Not a hard ForeignKey
+    # constraint (nullable, no FK enforcement) since agent-created claims
+    # via the "New Claim" modal don't collect a client_id today - but every
+    # seeded demo claim below sets it, and Clients.jsx / main.py can join on
+    # it to show a client's real claim history instead of a separate,
+    # independently-maintained `claims_history` JSON blob.
+    client_id = Column(String, nullable=True, index=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

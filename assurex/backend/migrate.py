@@ -44,6 +44,7 @@ _CLAIM_COLUMNS = [
     ("subtotal", "DOUBLE PRECISION", "0.0"),
     ("total", "DOUBLE PRECISION", "0.0"),
     ("insights", "TEXT", None),
+    ("client_id", "VARCHAR", None),
 ]
 
 # After adding the columns above, pre-existing rows have NULL in all of
