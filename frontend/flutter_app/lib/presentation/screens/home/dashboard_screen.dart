@@ -11,13 +11,13 @@ import 'package:ai_insurance_advisor/presentation/screens/conseil/conseil_screen
 import 'package:ai_insurance_advisor/presentation/screens/prevention/prevention_screen.dart';
 import 'package:ai_insurance_advisor/presentation/screens/conseil/conseil_chat_screen.dart';
 import 'package:ai_insurance_advisor/presentation/screens/declaration/declaration_chat_screen.dart';
-import 'package:ai_insurance_advisor/presentation/widgets/weather_traffic_widget.dart';
 import 'package:ai_insurance_advisor/presentation/widgets/map_traffic_widget.dart';
-import 'package:ai_insurance_advisor/presentation/widgets/quick_actions.dart';
 import 'package:ai_insurance_advisor/presentation/widgets/reminder_card.dart';
+import 'package:ai_insurance_advisor/presentation/widgets/assistant_personal_widget.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/notifications/notifications_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/profile/profile_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/auth/auth_bloc.dart';
+import 'package:ai_insurance_advisor/presentation/bloc/weather/weather_bloc.dart';
 import 'package:ai_insurance_advisor/app/theme.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -41,6 +41,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     context.read<NotificationsBloc>().add(const LoadNotificationsEvent());
     context.read<ProfileBloc>().add(const LoadProfileEvent());
+    // Charger la météo avec des coordonnées par défaut (Tunis)
+    context.read<WeatherBloc>().add(const LoadWeatherEvent(
+      latitude: 36.8065,
+      longitude: 10.1815,
+    ));
   }
 
   @override
@@ -135,9 +140,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (routeName.contains('declaration_chat') || routeName.contains('conseil_chat'))
             IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed: () {
-                // Rafraîchir la conversation
-              },
+              onPressed: () {},
               tooltip: 'Nouvelle conversation',
             ),
         ],
@@ -157,7 +160,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 // ============================================================
-// DASHBOARD HOME - DESIGN COMPLET ET PROFESSIONNEL
+// DASHBOARD HOME - DESIGN DYNAMIQUE ET INNOVANT
 // ============================================================
 
 class DashboardHome extends StatefulWidget {
@@ -193,33 +196,30 @@ class _DashboardHomeState extends State<DashboardHome> {
             children: [
               _buildHeader().animate().fadeIn(duration: 400.ms).slideY(begin: -0.1),
               const SizedBox(height: 14),
-              _buildQuickStats().animate().fadeIn(duration: 500.ms, delay: 100.ms),
+              _buildWeatherBanner().animate().fadeIn(duration: 500.ms, delay: 100.ms),
               const SizedBox(height: 14),
-              _buildServiceCards().animate().fadeIn(duration: 500.ms, delay: 150.ms),
+              _buildQuickStats().animate().fadeIn(duration: 500.ms, delay: 150.ms),
               const SizedBox(height: 14),
-              const WeatherTrafficWidget().animate().fadeIn(duration: 500.ms, delay: 200.ms),
+              _buildAssistantWidget().animate().fadeIn(duration: 500.ms, delay: 200.ms),
               const SizedBox(height: 14),
-              _buildSectionTitle('Trafic en temps réel', Icons.traffic)
+              _buildSmartCards().animate().fadeIn(duration: 500.ms, delay: 250.ms),
+              const SizedBox(height: 14),
+              _buildSectionTitle('Activité en temps réel', Icons.trending_up)
                   .animate().fadeIn(duration: 400.ms, delay: 300.ms),
               const SizedBox(height: 6),
-              const MapTrafficWidget().animate().fadeIn(duration: 500.ms, delay: 350.ms),
+              _buildActivityCards().animate().fadeIn(duration: 500.ms, delay: 350.ms),
               const SizedBox(height: 14),
-              _buildSectionTitle('Rappels et Notifications', Icons.notifications_active)
+              _buildSectionTitle('Trafic en temps réel', Icons.traffic)
                   .animate().fadeIn(duration: 400.ms, delay: 400.ms),
               const SizedBox(height: 6),
-              const ReminderCard().animate().fadeIn(duration: 500.ms, delay: 450.ms),
+              const MapTrafficWidget().animate().fadeIn(duration: 500.ms, delay: 450.ms),
               const SizedBox(height: 14),
-              _buildSectionTitle('Actions rapides', Icons.flash_on)
+              _buildSectionTitle('Rappels et Notifications', Icons.notifications_active)
                   .animate().fadeIn(duration: 400.ms, delay: 500.ms),
               const SizedBox(height: 6),
-              const QuickActions().animate().fadeIn(duration: 500.ms, delay: 550.ms),
-              const SizedBox(height: 14),
-              _buildSectionTitle('Statistiques', Icons.trending_up)
-                  .animate().fadeIn(duration: 400.ms, delay: 600.ms),
-              const SizedBox(height: 6),
-              _buildStats().animate().fadeIn(duration: 500.ms, delay: 650.ms),
+              const ReminderCard().animate().fadeIn(duration: 500.ms, delay: 550.ms),
               const SizedBox(height: 16),
-              _buildFooter().animate().fadeIn(duration: 400.ms, delay: 700.ms),
+              _buildFooter().animate().fadeIn(duration: 400.ms, delay: 600.ms),
             ],
           ),
         ),
@@ -230,24 +230,28 @@ class _DashboardHomeState extends State<DashboardHome> {
   Future<void> _refreshData() async {
     context.read<NotificationsBloc>().add(const LoadNotificationsEvent());
     context.read<ProfileBloc>().add(const LoadProfileEvent());
+    context.read<WeatherBloc>().add(const LoadWeatherEvent(
+      latitude: 36.8065,
+      longitude: 10.1815,
+    ));
     await Future<void>.delayed(const Duration(seconds: 1));
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // HEADER
+  // HEADER AVEC MÉTÉO INTÉGRÉE
   // ═══════════════════════════════════════════════════════════════════════
 
   Widget _buildHeader() {
     final theme = Theme.of(context);
     
     return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
+      builder: (context, authState) {
         String userName = 'Utilisateur';
         String userInitials = 'U';
         
-        if (state is AuthAuthenticated) {
-          userName = state.user.fullName;
-          userInitials = state.user.initials;
+        if (authState is AuthAuthenticated) {
+          userName = authState.user.fullName;
+          userInitials = authState.user.initials;
         }
         
         return Container(
@@ -307,7 +311,7 @@ class _DashboardHomeState extends State<DashboardHome> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Bienvenue sur votre tableau de bord',
+                      'Votre assurance intelligente',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.white.withValues(alpha: 0.8),
@@ -327,13 +331,7 @@ class _DashboardHomeState extends State<DashboardHome> {
                 ),
                 child: IconButton(
                   onPressed: () {
-                    // Naviguer vers les notifications
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('🔔 Notifications'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
+                    context.go('/dashboard/notifications');
                   },
                   icon: Badge(
                     isLabelVisible: true,
@@ -349,12 +347,164 @@ class _DashboardHomeState extends State<DashboardHome> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // STATS RAPIDES
+  // BANNER MÉTÉO UNIFIÉ
+  // ═══════════════════════════════════════════════════════════════════════
+
+  Widget _buildWeatherBanner() {
+    return BlocBuilder<WeatherBloc, WeatherState>(
+      builder: (context, state) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Colors.blue.shade600,
+                Colors.blue.shade400,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blue.withValues(alpha: 0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              if (state is WeatherLoaded) ...[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    _getWeatherIcon(state.condition),
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${state.temperature.toStringAsFixed(0)}°C',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        state.condition,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.umbrella,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${(state.humidity * 100).toInt()}%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else if (state is WeatherLoading) ...[
+                const Expanded(
+                  child: Row(
+                    children: [
+                      CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                      SizedBox(width: 12),
+                      Text(
+                        'Chargement...',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                const Expanded(
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.wb_sunny,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      SizedBox(width: 12),
+                      Text(
+                        'Météo disponible',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  IconData _getWeatherIcon(String condition) {
+    final cond = condition.toLowerCase();
+    if (cond.contains('soleil') || cond.contains('ensoleillé')) return Icons.wb_sunny;
+    if (cond.contains('pluie') || cond.contains('averse')) return Icons.grain;
+    if (cond.contains('nuage')) return Icons.cloud;
+    if (cond.contains('brouillard') || cond.contains('brume')) return Icons.cloud_queue;
+    if (cond.contains('neige')) return Icons.ac_unit;
+    if (cond.contains('orage')) return Icons.flash_on;
+    return Icons.wb_sunny;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // STATS RAPIDES - DESIGN MODERNE
   // ═══════════════════════════════════════════════════════════════════════
 
   Widget _buildQuickStats() {
     return BlocBuilder<ProfileBloc, ProfileState>(
       builder: (context, state) {
+        if (state is ProfileLoading) {
+          return _buildLoadingStats();
+        }
+
         String assuranceStatus = 'En attente';
         String primeValue = '-- TND';
         String scoreValue = '--%';
@@ -362,23 +512,10 @@ class _DashboardHomeState extends State<DashboardHome> {
         Color primeColor = const Color(0xFF667eea);
         Color scoreColor = const Color(0xFF667eea);
 
-        if (state is ProfileLoading) {
-          return Row(
-            children: [
-              Expanded(child: _buildQuickStatItemLoading()),
-              const SizedBox(width: 8),
-              Expanded(child: _buildQuickStatItemLoading()),
-              const SizedBox(width: 8),
-              Expanded(child: _buildQuickStatItemLoading()),
-            ],
-          );
-        }
-
         if (state is ProfileLoaded) {
           final profile = state.profile;
-          
           final insuranceStatus = profile['insurance_status'] as String? ?? 'active';
-          assuranceStatus = insuranceStatus == 'active' ? 'Active' : 'Inactive';
+          assuranceStatus = insuranceStatus == 'active' ? 'Active ✓' : 'Inactive ✗';
           assuranceColor = insuranceStatus == 'active' ? Colors.green : Colors.red;
           
           final monthlyPremium = profile['monthly_premium'] as double? ?? 0;
@@ -393,37 +530,139 @@ class _DashboardHomeState extends State<DashboardHome> {
         return Row(
           children: [
             Expanded(
-              child: _buildQuickStatItem(
+              child: _buildStatCard(
                 icon: Icons.verified_rounded,
                 label: 'Assurance',
                 value: assuranceStatus,
                 color: assuranceColor,
-                iconBgColor: assuranceColor.withValues(alpha: 0.15),
+                gradient: [assuranceColor.withValues(alpha: 0.1), Colors.white],
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _buildQuickStatItem(
+              child: _buildStatCard(
                 icon: Icons.attach_money_rounded,
                 label: 'Prime',
                 value: primeValue,
                 color: primeColor,
-                iconBgColor: primeColor.withValues(alpha: 0.15),
+                gradient: [primeColor.withValues(alpha: 0.1), Colors.white],
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _buildQuickStatItem(
+              child: _buildStatCard(
                 icon: Icons.star_rounded,
                 label: 'Score',
                 value: scoreValue,
                 color: scoreColor,
-                iconBgColor: scoreColor.withValues(alpha: 0.15),
+                gradient: [scoreColor.withValues(alpha: 0.1), Colors.white],
               ),
             ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildLoadingStats() {
+    return Row(
+      children: List.generate(3, (index) => 
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: _buildCardShadow(),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: 40,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  width: 25,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ).toList(),
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+    required List<Color> gradient,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradient,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: color.withValues(alpha: 0.2),
+          width: 1,
+        ),
+        boxShadow: _buildCardShadow(),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 18, color: color),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -433,202 +672,103 @@ class _DashboardHomeState extends State<DashboardHome> {
     return Colors.red;
   }
 
-  Widget _buildQuickStatItemLoading() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: _buildCardShadow(),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(height: 4),
-          Container(
-            width: 25,
-            height: 6,
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ),
-          const SizedBox(height: 2),
-          Container(
-            width: 15,
-            height: 5,
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ═══════════════════════════════════════════════════════════════════════
+  // ASSISTANT PERSONAL WIDGET
+  // ═══════════════════════════════════════════════════════════════════════
 
-  Widget _buildQuickStatItem({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-    required Color iconBgColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: _buildCardShadow(),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(
-              color: iconBgColor,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 15, color: color),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 8,
-              color: Colors.grey[500],
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ],
-      ),
-    );
+  Widget _buildAssistantWidget() {
+    return const AssistantPersonalWidget();
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // SERVICE CARDS
+  // SMART CARDS - SERVICES INNOVANTS
   // ═══════════════════════════════════════════════════════════════════════
 
-  Widget _buildServiceCards() {
-    final services = [
-      {
-        'icon': Icons.assignment_rounded,
-        'title': 'Déclaration guidée',
-        'description': 'Déclarez votre sinistre en quelques étapes',
-        'color': Colors.blue,
-        'route': '/dashboard/declaration',
-        'iconColor': Colors.white,
-      },
-      {
-        'icon': Icons.chat_rounded,
-        'title': 'Déclaration Chat',
-        'description': 'Remplissez le constat avec l\'IA',
-        'color': Colors.teal,
-        'route': '/dashboard/declaration_chat',
-        'iconColor': Colors.white,
-      },
-      {
-        'icon': Icons.lightbulb_rounded,
-        'title': 'Conseils personnalisés',
-        'description': 'Recommandations adaptées à votre profil',
-        'color': const Color(0xFF7C3AED),
-        'route': '/dashboard/conseil',
-        'iconColor': Colors.white,
-      },
-      {
-        'icon': Icons.chat_rounded,
-        'title': 'Conseiller IA',
-        'description': 'Chat pour choisir votre assurance',
-        'color': Colors.pink,
-        'route': '/dashboard/conseil_chat',
-        'iconColor': Colors.white,
-      },
-      {
-        'icon': Icons.shield_rounded,
-        'title': 'Prévention intelligente',
-        'description': 'Alertes et conseils pour votre sécurité',
-        'color': Colors.green,
-        'route': '/dashboard/prevention',
-        'iconColor': Colors.white,
-      },
+  Widget _buildSmartCards() {
+    final cards = [
+      _SmartCardData(
+        icon: Icons.description_rounded,
+        title: 'Déclaration IA',
+        subtitle: 'Constat intelligent',
+        color: Colors.blue,
+        route: '/dashboard/declaration_chat',
+        gradient: [Colors.blue.shade400, Colors.blue.shade600],
+      ),
+      _SmartCardData(
+        icon: Icons.chat_rounded,
+        title: 'Assistant IA',
+        subtitle: 'Conseils personnalisés',
+        color: Colors.purple,
+        route: '/dashboard/conseil_chat',
+        gradient: [Colors.purple.shade400, Colors.purple.shade600],
+      ),
+      _SmartCardData(
+        icon: Icons.shield_rounded,
+        title: 'Prévention',
+        subtitle: 'Alertes sécurité',
+        color: Colors.green,
+        route: '/dashboard/prevention',
+        gradient: [Colors.green.shade400, Colors.green.shade600],
+      ),
     ];
 
     return SizedBox(
-      height: 120,
+      height: 100,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: services.length,
+        itemCount: cards.length,
         itemBuilder: (context, index) {
-          final service = services[index];
+          final card = cards[index];
           return GestureDetector(
-            onTap: () => context.go(service['route'] as String),
+            onTap: () => context.go(card.route),
             child: Container(
-              width: 150,
+              width: MediaQuery.of(context).size.width * 0.3,
               margin: const EdgeInsets.only(right: 10),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    service['color'] as Color,
-                    (service['color'] as Color).withValues(alpha: 0.7),
-                  ],
+                  colors: card.gradient,
                 ),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: (service['color'] as Color).withValues(alpha: 0.3),
+                    color: card.color.withValues(alpha: 0.3),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
                 ],
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(service['icon'] as IconData, color: Colors.white, size: 16),
+                    child: Icon(card.icon, color: Colors.white, size: 22),
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 6),
                   Text(
-                    service['title'] as String,
+                    card.title,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 11,
+                      fontSize: 12,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
                   Text(
-                    service['description'] as String,
+                    card.subtitle,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 9,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -637,6 +777,95 @@ class _DashboardHomeState extends State<DashboardHome> {
           );
         },
       ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ACTIVITY CARDS
+  // ═══════════════════════════════════════════════════════════════════════
+
+  Widget _buildActivityCards() {
+    return BlocBuilder<ProfileBloc, ProfileState>(
+      builder: (context, state) {
+        final activities = [
+          _ActivityData(
+            icon: Icons.directions_car_rounded,
+            label: 'Véhicules',
+            value: state is ProfileLoaded 
+                ? (state.profile['vehicles_count'] as int? ?? 1).toString()
+                : '0',
+            color: const Color(0xFF667eea),
+          ),
+          _ActivityData(
+            icon: Icons.assignment_rounded,
+            label: 'Contrats',
+            value: state is ProfileLoaded
+                ? (state.profile['contracts_count'] as int? ?? 2).toString()
+                : '0',
+            color: Colors.green,
+          ),
+          _ActivityData(
+            icon: Icons.notifications_rounded,
+            label: 'Alertes',
+            value: state is ProfileLoaded
+                ? (state.profile['alerts_count'] as int? ?? 5).toString()
+                : '0',
+            color: Colors.orange,
+          ),
+        ];
+
+        return Row(
+          children: activities.map((activity) {
+            return Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.grey.shade100,
+                    width: 1,
+                  ),
+                  boxShadow: _buildCardShadow(),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: activity.color.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        activity.icon,
+                        size: 18,
+                        color: activity.color,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      activity.value,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    Text(
+                      activity.label,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 
@@ -669,90 +898,6 @@ class _DashboardHomeState extends State<DashboardHome> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // STATISTIQUES
-  // ═══════════════════════════════════════════════════════════════════════
-
-  Widget _buildStats() {
-    return BlocBuilder<ProfileBloc, ProfileState>(
-      builder: (context, state) {
-        String vehicleCount = '0';
-        String contractCount = '0';
-        String alertCount = '0';
-
-        if (state is ProfileLoaded) {
-          final profile = state.profile;
-          vehicleCount = (profile['vehicles_count'] as int? ?? 1).toString();
-          contractCount = (profile['contracts_count'] as int? ?? 2).toString();
-          alertCount = (profile['alerts_count'] as int? ?? 5).toString();
-        }
-
-        final stats = [
-          {
-            'icon': Icons.directions_car_rounded,
-            'value': vehicleCount,
-            'label': 'Véhicule',
-            'color': const Color(0xFF667eea),
-          },
-          {
-            'icon': Icons.shield_rounded,
-            'value': contractCount,
-            'label': 'Contrats',
-            'color': Colors.green,
-          },
-          {
-            'icon': Icons.help_rounded,
-            'value': alertCount,
-            'label': 'Alertes',
-            'color': Colors.orange,
-          },
-        ];
-
-        return Row(
-          children: stats.map((stat) {
-            return Expanded(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: _buildCardShadow(),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      stat['icon'] as IconData,
-                      size: 18,
-                      color: stat['color'] as Color,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      stat['value'] as String,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[800],
-                      ),
-                    ),
-                    Text(
-                      stat['label'] as String,
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: Colors.grey[500],
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
   // FOOTER
   // ═══════════════════════════════════════════════════════════════════════
 
@@ -770,22 +915,42 @@ class _DashboardHomeState extends State<DashboardHome> {
             ),
             const SizedBox(width: 4),
             Text(
-              'AssurIA v1.0',
+              'AssurIA v2.0',
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.grey[500],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 4,
+              height: 4,
+              decoration: const BoxDecoration(
+                color: Colors.grey,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Intelligent • Sécurisé • Innovant',
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey[400],
+                fontWeight: FontWeight.w300,
               ),
             ),
           ],
         ),
         const SizedBox(height: 4),
         Text(
-          'Votre assurance intelligente',
+          'Votre assurance nouvelle génération',
           style: TextStyle(
             fontSize: 9,
             color: Colors.grey[400],
+            letterSpacing: 0.5,
           ),
         ),
+        const SizedBox(height: 8),
       ],
     );
   }
@@ -799,4 +964,40 @@ class _DashboardHomeState extends State<DashboardHome> {
       ),
     ];
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DATA CLASSES
+// ═══════════════════════════════════════════════════════════════════════
+
+class _SmartCardData {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final String route;
+  final List<Color> gradient;
+
+  _SmartCardData({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.route,
+    required this.gradient,
+  });
+}
+
+class _ActivityData {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  _ActivityData({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 }
