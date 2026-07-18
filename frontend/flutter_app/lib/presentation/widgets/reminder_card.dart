@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/notifications/notifications_bloc.dart';
+import 'package:ai_insurance_advisor/data/models/notification_model.dart';
 import 'package:ai_insurance_advisor/app/theme.dart';
 
 class ReminderCard extends StatelessWidget {
@@ -26,12 +27,7 @@ class ReminderCard extends StatelessWidget {
           return Column(
             children: notifications.take(3).map((notif) {
               return _buildReminderItem(
-                icon: notif['icon'] as IconData? ?? Icons.notifications,
-                title: notif['title'] as String? ?? 'Rappel',
-                message: notif['message'] as String? ?? '',
-                color: notif['color'] as Color? ?? Colors.blue,
-                timestamp: notif['timestamp'] as DateTime? ?? DateTime.now(),
-                isRead: notif['read'] as bool? ?? false,
+                notification: notif,
               );
             }).toList(),
           );
@@ -47,22 +43,52 @@ class ReminderCard extends StatelessWidget {
   }
 
   Widget _buildReminderItem({
-    required IconData icon,
-    required String title,
-    required String message,
-    required Color color,
-    required DateTime timestamp,
-    required bool isRead,
+    required NotificationModel notification,
   }) {
+    // Déterminer l'icône en fonction du type
+    IconData getIconForType(String type) {
+      switch (type) {
+        case 'info':
+          return Icons.info_outline_rounded;
+        case 'success':
+          return Icons.check_circle_outline_rounded;
+        case 'warning':
+          return Icons.warning_amber_rounded;
+        case 'error':
+          return Icons.error_outline_rounded;
+        default:
+          return Icons.notifications_outlined;
+      }
+    }
+
+    // Déterminer la couleur en fonction du type
+    Color getColorForType(String type) {
+      switch (type) {
+        case 'info':
+          return const Color(0xFF3B82F6);
+        case 'success':
+          return Colors.green;
+        case 'warning':
+          return Colors.orange;
+        case 'error':
+          return Colors.red;
+        default:
+          return Colors.grey;
+      }
+    }
+
+    final icon = getIconForType(notification.type);
+    final color = getColorForType(notification.type);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isRead ? Colors.grey[50] : Colors.white,
+        color: notification.isRead ? Colors.grey[50] : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isRead ? Colors.grey[200]! : color.withValues(alpha: 0.2),
-          width: isRead ? 1 : 1.5,
+          color: notification.isRead ? Colors.grey[200]! : color.withValues(alpha: 0.2),
+          width: notification.isRead ? 1 : 1.5,
         ),
         boxShadow: [
           BoxShadow(
@@ -90,7 +116,7 @@ class ReminderCard extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      title,
+                      notification.title,
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
@@ -98,7 +124,7 @@ class ReminderCard extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    if (!isRead)
+                    if (!notification.isRead)
                       Container(
                         width: 8,
                         height: 8,
@@ -111,7 +137,7 @@ class ReminderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  message,
+                  notification.message,
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
@@ -121,7 +147,7 @@ class ReminderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _formatTimeAgo(timestamp),
+                  _formatTimeAgo(notification.date),
                   style: TextStyle(
                     fontSize: 10,
                     color: Colors.grey[400],

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/declaration/declaration_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/widgets/declaration_step.dart';
+import 'package:ai_insurance_advisor/data/models/declaration_model.dart'; // ✅ Ajout de l'import
 
 class DeclarationScreen extends StatefulWidget {
   const DeclarationScreen({super.key});
@@ -32,7 +33,7 @@ class _DeclarationScreenState extends State<DeclarationScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<DeclarationBloc>().add(const LoadDeclarationDataEvent());
+    context.read<DeclarationBloc>().add(const LoadDeclarationsEvent());
   }
 
   @override
@@ -150,17 +151,41 @@ class _DeclarationScreenState extends State<DeclarationScreen> {
   }
 
   void _submitDeclaration() {
-    context.read<DeclarationBloc>().add(
-      SubmitDeclarationEvent(
-        date: _dateController.text,
-        time: _heureController.text,
-        location: _lieuController.text,
-        description: _descriptionController.text,
-        vehicleName: '${_marqueController.text} ${_modeleController.text}',
-        driverName: _nomController.text,
-        images: [],
+    // Créer une déclaration avec les données du formulaire
+    final declaration = DeclarationModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: 'Déclaration du ${_dateController.text}',
+      description: _descriptionController.text,
+      status: 'en_attente',
+      date: DateTime.now(),
+      vehicleInfo: '${_marqueController.text} ${_modeleController.text} (${_immatriculationController.text})',
+      details: {
+        'lieu': _lieuController.text,
+        'heure': _heureController.text,
+        'conducteur': _nomController.text,
+        'email': _emailController.text,
+        'telephone': _telephoneController.text,
+        'age': _ageController.text,
+        'annee': _anneeController.text,
+        'marque': _marqueController.text,
+        'modele': _modeleController.text,
+        'immatriculation': _immatriculationController.text,
+      },
+    );
+
+    context.read<DeclarationBloc>().add(AddDeclarationEvent(declaration));
+    
+    // Afficher un message de succès
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✅ Déclaration envoyée avec succès'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
       ),
     );
+
+    // Retourner à la liste des constats
+    Navigator.pop(context);
   }
 
   Widget _buildTextField(String label, TextEditingController controller, IconData icon, String hint) {

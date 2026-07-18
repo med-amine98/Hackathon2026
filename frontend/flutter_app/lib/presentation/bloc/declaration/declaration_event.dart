@@ -4,50 +4,43 @@ part of 'declaration_bloc.dart';
 
 abstract class DeclarationEvent extends Equatable {
   const DeclarationEvent();
-  
+
   @override
   List<Object?> get props => [];
 }
 
-class LoadDeclarationDataEvent extends DeclarationEvent {
-  const LoadDeclarationDataEvent();
+class LoadDeclarationsEvent extends DeclarationEvent {
+  const LoadDeclarationsEvent();
+}
+
+class AddDeclarationEvent extends DeclarationEvent {
+  final DeclarationModel declaration;
+  
+  const AddDeclarationEvent(this.declaration);
+
+  @override
+  List<Object?> get props => [declaration];
 }
 
 class UpdateDeclarationEvent extends DeclarationEvent {
-  final String key;
-  final dynamic value;
+  final String id;
+  final String newStatus;
   
-  const UpdateDeclarationEvent(this.key, this.value);
-  
+  const UpdateDeclarationEvent(this.id, this.newStatus);
+
   @override
-  List<Object?> get props => [key, value];
+  List<Object?> get props => [id, newStatus];
 }
 
-class SubmitDeclarationEvent extends DeclarationEvent {
-  final String date;
-  final String time;
-  final String location;
-  final String description;
-  final String vehicleName;
-  final String driverName;
-  final List<String>? images;
+class DeleteDeclarationEvent extends DeclarationEvent {
+  final String id;
   
-  const SubmitDeclarationEvent({
-    required this.date,
-    required this.time,
-    required this.location,
-    required this.description,
-    required this.vehicleName,
-    required this.driverName,
-    this.images,
-  });
-  
+  const DeleteDeclarationEvent(this.id);
+
   @override
-  List<Object?> get props => [
-    date, time, location, description, vehicleName, driverName, images
-  ];
+  List<Object?> get props => [id];
 }
 
-class ResetDeclarationEvent extends DeclarationEvent {
-  const ResetDeclarationEvent();
+class RefreshDeclarationsEvent extends DeclarationEvent {
+  const RefreshDeclarationsEvent();
 }

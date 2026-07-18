@@ -2,80 +2,89 @@
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:ai_insurance_advisor/models/declaration_model.dart';
-import 'package:ai_insurance_advisor/services/ai/declaration_service.dart';
+import 'package:ai_insurance_advisor/data/models/declaration_model.dart';
+import 'package:ai_insurance_advisor/data/repositories/declaration_repository.dart';
 
 part 'declaration_event.dart';
 part 'declaration_state.dart';
 
 class DeclarationBloc extends Bloc<DeclarationEvent, DeclarationState> {
   DeclarationBloc() : super(const DeclarationInitial()) {
-    on<LoadDeclarationDataEvent>(_onLoadData);
-    on<UpdateDeclarationEvent>(_onUpdate);
-    on<SubmitDeclarationEvent>(_onSubmit);
-    on<ResetDeclarationEvent>(_onReset);
+    on<LoadDeclarationsEvent>(_onLoadDeclarations);
+    on<AddDeclarationEvent>(_onAddDeclaration);
+    on<UpdateDeclarationEvent>(_onUpdateDeclaration);
+    on<DeleteDeclarationEvent>(_onDeleteDeclaration);
+    on<RefreshDeclarationsEvent>(_onRefreshDeclarations);
   }
 
-  Future<void> _onLoadData(
-    LoadDeclarationDataEvent event,
+  Future<void> _onLoadDeclarations(
+    LoadDeclarationsEvent event,
     Emitter<DeclarationState> emit,
   ) async {
     emit(const DeclarationLoading());
     try {
-      await Future<void>.delayed(const Duration(seconds: 1));
-      emit(const DeclarationLoaded());
+      // ✅ CORRECTION : Utiliser await pour récupérer les déclarations
+      final currentDeclarations = await DeclarationRepository.getDeclarations();
+      
+      // Ajouter des données de test si nécessaire
+      if (currentDeclarations.isEmpty) {
+        DeclarationRepository.addTestDeclarations();
+      }
+      
+      final declarations = await DeclarationRepository.getDeclarations();
+      emit(DeclarationLoaded(declarations));
     } catch (e) {
-      emit(DeclarationError(e.toString()));
+      emit(DeclarationError('Erreur lors du chargement des déclarations: $e'));
     }
   }
 
-  void _onUpdate(
+  Future<void> _onAddDeclaration(
+    AddDeclarationEvent event,
+    Emitter<DeclarationState> emit,
+  ) async {
+    try {
+      await DeclarationRepository.addDeclaration(event.declaration);
+      final declarations = await DeclarationRepository.getDeclarations();
+      emit(DeclarationLoaded(declarations));
+    } catch (e) {
+      emit(DeclarationError('Erreur lors de l\'ajout de la déclaration: $e'));
+    }
+  }
+
+  Future<void> _onUpdateDeclaration(
     UpdateDeclarationEvent event,
     Emitter<DeclarationState> emit,
-  ) {
-    final currentState = state;
-    if (currentState is DeclarationLoaded) {
-      final updated = Map<String, dynamic>.from(currentState.data);
-      updated[event.key] = event.value;
-      emit(DeclarationLoaded(data: updated));
+  ) async {
+    try {
+      await DeclarationRepository.updateDeclarationStatus(
+        event.id, 
+        event.newStatus
+      );
+      final declarations = await DeclarationRepository.getDeclarations();
+      emit(DeclarationLoaded(declarations));
+    } catch (e) {
+      emit(DeclarationError('Erreur lors de la mise à jour: $e'));
     }
   }
 
-  Future<void> _onSubmit(
-    SubmitDeclarationEvent event,
+  Future<void> _onDeleteDeclaration(
+    DeleteDeclarationEvent event,
     Emitter<DeclarationState> emit,
   ) async {
-    emit(const DeclarationLoading());
     try {
-      // Créer la déclaration
-      final declaration = DeclarationModel(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        date: event.date,
-        time: event.time,
-        location: event.location,
-        description: event.description,
-        vehicleName: event.vehicleName,
-        driverName: event.driverName,
-        status: 'en_attente',
-        createdAt: DateTime.now(),
-        images: event.images ?? [],
-      );
-
-      // Soumettre avec IA
-      final result = await DeclarationService.submitDeclaration(
-        declaration: declaration,
-      );
-
-      emit(DeclarationSubmitted(data: result.toJson()));
+      await DeclarationRepository.deleteDeclaration(event.id);
+      final declarations = await DeclarationRepository.getDeclarations();
+      emit(DeclarationLoaded(declarations));
     } catch (e) {
-      emit(DeclarationError(e.toString()));
+      emit(DeclarationError('Erreur lors de la suppression: $e'));
     }
   }
 
-  void _onReset(
-    ResetDeclarationEvent event,
+  Future<void> _onRefreshDeclarations(
+    RefreshDeclarationsEvent event,
     Emitter<DeclarationState> emit,
-  ) {
-    emit(const DeclarationInitial());
+  ) async {
+    final declarations = await DeclarationRepository.getDeclarations();
+    emit(DeclarationLoaded(declarations));
   }
 }
