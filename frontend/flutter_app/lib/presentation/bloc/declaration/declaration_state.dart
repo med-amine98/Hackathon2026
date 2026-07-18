@@ -4,7 +4,7 @@ part of 'declaration_bloc.dart';
 
 abstract class DeclarationState extends Equatable {
   const DeclarationState();
-  
+
   @override
   List<Object?> get props => [];
 }
@@ -18,28 +18,19 @@ class DeclarationLoading extends DeclarationState {
 }
 
 class DeclarationLoaded extends DeclarationState {
-  final Map<String, dynamic> data;
+  final List<DeclarationModel> declarations;
   
-  const DeclarationLoaded({this.data = const {}});
-  
-  @override
-  List<Object?> get props => [data];
-}
+  const DeclarationLoaded(this.declarations);
 
-class DeclarationSubmitted extends DeclarationState {
-  final Map<String, dynamic> data;
-  
-  const DeclarationSubmitted({required this.data});
-  
   @override
-  List<Object?> get props => [data];
+  List<Object?> get props => [declarations];
 }
 
 class DeclarationError extends DeclarationState {
   final String message;
   
   const DeclarationError(this.message);
-  
+
   @override
   List<Object?> get props => [message];
 }

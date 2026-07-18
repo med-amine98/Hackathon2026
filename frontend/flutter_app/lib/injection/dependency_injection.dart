@@ -23,6 +23,7 @@ import 'package:ai_insurance_advisor/presentation/bloc/conseil/conseil_bloc.dart
 import 'package:ai_insurance_advisor/presentation/bloc/prevention/prevention_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/conseil_chat/conseil_chat_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/declaration_chat/declaration_chat_bloc.dart';
+import 'package:ai_insurance_advisor/core/services/risk_prediction_service.dart'; // ✅ Ajout
 
 final GetIt getIt = GetIt.instance;
 
@@ -50,20 +51,16 @@ Future<void> setupDependencies() async {
     ProfileRepository(getIt.get<ApiClient>()),
   );
 
+  // ✅ Register RiskPredictionService as Singleton
+  getIt.registerLazySingleton<RiskPredictionService>(() => RiskPredictionService());
+
   // ── BLoCs ─────────────────────────────────────────────────────────────────
-  // AuthBloc est un singleton : le router (voir app/routes.dart) a besoin
-  // d'écouter la même instance que celle fournie à l'app via BlocProvider,
-  // sinon les redirections ne réagissent pas aux changements d'état.
   getIt.registerLazySingleton<AuthBloc>(
     () => AuthBloc(getIt.get<AuthRepository>()),
   );
   getIt.registerFactory<ChatBloc>(
     () => ChatBloc(chatRepository: getIt.get<ChatRepository>()),
   );
-  // Singleton (not a factory): the floating agent chat bubble is mounted
-  // once app-wide (see app/app.dart) and reopened/closed as a bottom sheet
-  // — it needs the SAME bloc instance every time so the conversation
-  // (and conversation_id) survive closing and reopening the bubble.
   getIt.registerLazySingleton<AgentChatBloc>(
     () => AgentChatBloc(repository: getIt.get<AgentChatRepository>()),
   );
@@ -82,7 +79,6 @@ Future<void> setupDependencies() async {
   getIt.registerFactory<TrafficBloc>(
     () => TrafficBloc(),
   );
-  
   getIt.registerFactory<DeclarationBloc>(
     () => DeclarationBloc(),
   );
@@ -95,7 +91,6 @@ Future<void> setupDependencies() async {
       profileRepository: getIt.get<ProfileRepository>(),
     ),
   );
-
   getIt.registerFactory<ConseilChatBloc>(
     () => ConseilChatBloc(),
   );

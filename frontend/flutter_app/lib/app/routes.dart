@@ -20,6 +20,8 @@ import 'package:ai_insurance_advisor/presentation/screens/products/product_detai
 import 'package:ai_insurance_advisor/presentation/screens/declaration/declaration_screen.dart';
 import 'package:ai_insurance_advisor/presentation/screens/conseil/conseil_screen.dart';
 import 'package:ai_insurance_advisor/presentation/screens/prevention/prevention_screen.dart';
+import 'package:ai_insurance_advisor/presentation/screens/assistant/assistant_screen.dart';
+import 'package:ai_insurance_advisor/presentation/screens/notifications/notifications_screen.dart';
 
 /// Convertit un Stream (ici le stream de AuthBloc) en Listenable pour que
 /// GoRouter réévalue `redirect` à chaque changement d'état d'authentification,
@@ -40,12 +42,6 @@ class GoRouterRefreshStream extends ChangeNotifier {
 }
 
 class AppRouter {
-  // Exposed so widgets mounted OUTSIDE the routed page tree — like the
-  // floating agent chat bubble in app/app.dart's MaterialApp.router
-  // `builder`, which sits above/outside go_router's own Navigator — can
-  // still open a dialog/bottom sheet. Standard go_router pattern for
-  // exactly this ("Navigator operation requested with a context that does
-  // not include a Navigator" otherwise). See agent_chat_bubble.dart.
   static final rootNavigatorKey = GlobalKey<NavigatorState>();
 
   static final router = GoRouter(
@@ -136,10 +132,11 @@ class AppRouter {
         name: 'chat',
         builder: (context, state) => const ChatScreen(),
       ),
+      // ✅ Correction : utiliser ProfileScreenWidget au lieu de ProfileScreen
       GoRoute(
         path: '/dashboard/profile',
         name: 'profile',
-        builder: (context, state) => const ProfileScreen(),
+        builder: (context, state) => const ProfileScreenWidget(),
       ),
       GoRoute(
         path: '/dashboard/products',
@@ -153,6 +150,18 @@ class AppRouter {
           final id = state.pathParameters['id']!;
           return ProductDetailScreen(productId: id);
         },
+      ),
+      GoRoute(
+        path: '/dashboard/notifications',
+        name: 'notifications',
+        builder: (context, state) => const NotificationsScreen(),
+      ),
+      
+      // ─── Assistant IA (Route indépendante) ──────────────────────────────
+      GoRoute(
+        path: '/assistant',
+        name: 'assistant',
+        builder: (context, state) => const AssistantScreen(),
       ),
     ],
   );

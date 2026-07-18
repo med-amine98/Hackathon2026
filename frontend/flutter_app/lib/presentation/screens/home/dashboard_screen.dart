@@ -7,18 +7,25 @@ import 'package:go_router/go_router.dart';
 import 'package:ai_insurance_advisor/presentation/screens/chat/chat_screen.dart';
 import 'package:ai_insurance_advisor/presentation/screens/profile/profile_screen.dart';
 import 'package:ai_insurance_advisor/presentation/screens/declaration/declaration_screen.dart';
+import 'package:ai_insurance_advisor/presentation/screens/declaration/declaration_list_screen.dart';
 import 'package:ai_insurance_advisor/presentation/screens/conseil/conseil_screen.dart';
 import 'package:ai_insurance_advisor/presentation/screens/prevention/prevention_screen.dart';
 import 'package:ai_insurance_advisor/presentation/screens/conseil/conseil_chat_screen.dart';
 import 'package:ai_insurance_advisor/presentation/screens/declaration/declaration_chat_screen.dart';
 import 'package:ai_insurance_advisor/presentation/widgets/map_traffic_widget.dart';
 import 'package:ai_insurance_advisor/presentation/widgets/reminder_card.dart';
-import 'package:ai_insurance_advisor/presentation/widgets/assistant_personal_widget.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/notifications/notifications_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/profile/profile_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/auth/auth_bloc.dart';
 import 'package:ai_insurance_advisor/presentation/bloc/weather/weather_bloc.dart';
 import 'package:ai_insurance_advisor/app/theme.dart';
+import 'package:ai_insurance_advisor/presentation/screens/notifications/notifications_screen.dart';
+
+// Palette de couleurs
+const Color primaryColor = Color(0xFF3B82F6);
+const Color secondaryColor = Color(0xFF60A5FA);
+const Color accentColor = Color(0xFF1F2937);
+const Color backgroundColor = Color(0xFFF9FAFB);
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -32,8 +39,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   final List<Widget> _screens = const [
     DashboardHome(),
-    ChatScreen(),
-    ProfileScreen(),
+    DeclarationListScreen(),
+    ProfileScreenWidget(), // ✅ Utilisation de ProfileScreenWidget
   ];
 
   @override
@@ -41,7 +48,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     context.read<NotificationsBloc>().add(const LoadNotificationsEvent());
     context.read<ProfileBloc>().add(const LoadProfileEvent());
-    // Charger la météo avec des coordonnées par défaut (Tunis)
     context.read<WeatherBloc>().add(const LoadWeatherEvent(
       latitude: 36.8065,
       longitude: 10.1815,
@@ -84,7 +90,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 currentIndex: _selectedIndex,
                 onTap: (index) => setState(() => _selectedIndex = index),
                 type: BottomNavigationBarType.fixed,
-                selectedItemColor: AppTheme.primaryColor,
+                selectedItemColor: primaryColor,
                 unselectedItemColor: Colors.grey,
                 showSelectedLabels: true,
                 showUnselectedLabels: true,
@@ -96,9 +102,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     label: 'Accueil',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.chat_outlined),
-                    activeIcon: Icon(Icons.chat),
-                    label: 'Assistant',
+                    icon: Icon(Icons.assignment_outlined),
+                    activeIcon: Icon(Icons.assignment),
+                    label: 'Mes constats',
                   ),
                   BottomNavigationBarItem(
                     icon: Icon(Icons.person_outline),
@@ -160,7 +166,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 // ============================================================
-// DASHBOARD HOME - DESIGN DYNAMIQUE ET INNOVANT
+// DASHBOARD HOME - DESIGN PROFESSIONNEL STYLE APPLE
 // ============================================================
 
 class DashboardHome extends StatefulWidget {
@@ -174,51 +180,40 @@ class _DashboardHomeState extends State<DashboardHome> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xFF667eea).withValues(alpha: 0.06),
-            Colors.white,
-          ],
-        ),
-      ),
+      color: backgroundColor,
       child: RefreshIndicator(
         onRefresh: _refreshData,
-        color: const Color(0xFF667eea),
+        color: primaryColor,
         backgroundColor: Colors.white,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader().animate().fadeIn(duration: 400.ms).slideY(begin: -0.1),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               _buildWeatherBanner().animate().fadeIn(duration: 500.ms, delay: 100.ms),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               _buildQuickStats().animate().fadeIn(duration: 500.ms, delay: 150.ms),
-              const SizedBox(height: 14),
-              _buildAssistantWidget().animate().fadeIn(duration: 500.ms, delay: 200.ms),
-              const SizedBox(height: 14),
-              _buildSmartCards().animate().fadeIn(duration: 500.ms, delay: 250.ms),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
+              _buildSmartCards().animate().fadeIn(duration: 500.ms, delay: 200.ms),
+              const SizedBox(height: 16),
               _buildSectionTitle('Activité en temps réel', Icons.trending_up)
                   .animate().fadeIn(duration: 400.ms, delay: 300.ms),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               _buildActivityCards().animate().fadeIn(duration: 500.ms, delay: 350.ms),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               _buildSectionTitle('Trafic en temps réel', Icons.traffic)
                   .animate().fadeIn(duration: 400.ms, delay: 400.ms),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               const MapTrafficWidget().animate().fadeIn(duration: 500.ms, delay: 450.ms),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               _buildSectionTitle('Rappels et Notifications', Icons.notifications_active)
                   .animate().fadeIn(duration: 400.ms, delay: 500.ms),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               const ReminderCard().animate().fadeIn(duration: 500.ms, delay: 550.ms),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               _buildFooter().animate().fadeIn(duration: 400.ms, delay: 600.ms),
             ],
           ),
@@ -238,7 +233,7 @@ class _DashboardHomeState extends State<DashboardHome> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // HEADER AVEC MÉTÉO INTÉGRÉE
+  // HEADER
   // ═══════════════════════════════════════════════════════════════════════
 
   Widget _buildHeader() {
@@ -257,13 +252,13 @@ class _DashboardHomeState extends State<DashboardHome> {
         return Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+            gradient: LinearGradient(
+              colors: [primaryColor, secondaryColor],
             ),
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF667eea).withValues(alpha: 0.3),
+                color: primaryColor.withValues(alpha: 0.25),
                 blurRadius: 20,
                 offset: const Offset(0, 6),
               ),
@@ -314,7 +309,7 @@ class _DashboardHomeState extends State<DashboardHome> {
                       'Votre assurance intelligente',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.8),
+                        color: Colors.white.withValues(alpha: 0.85),
                       ),
                     ),
                   ],
@@ -339,6 +334,22 @@ class _DashboardHomeState extends State<DashboardHome> {
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+                child: IconButton(
+                  onPressed: () => _showLogoutDialog(context),
+                  icon: const Icon(Icons.logout_rounded, color: Colors.white, size: 20),
+                  tooltip: 'Déconnexion',
+                ),
+              ),
             ],
           ),
         );
@@ -347,7 +358,103 @@ class _DashboardHomeState extends State<DashboardHome> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // BANNER MÉTÉO UNIFIÉ
+  // DIALOGUE DE DÉCONNEXION
+  // ═══════════════════════════════════════════════════════════════════════
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.logout_rounded,
+                  color: Colors.red,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Déconnexion',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: accentColor,
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Êtes-vous sûr de vouloir vous déconnecter ?',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.grey[600],
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _logout(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text('Se déconnecter'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // LOGOUT FUNCTION
+  // ═══════════════════════════════════════════════════════════════════════
+
+  void _logout(BuildContext context) {
+    context.read<AuthBloc>().add(const LogoutRequestedEvent());
+    context.go('/login');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 10),
+            Text('Déconnexion réussie'),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // BANNER MÉTÉO
   // ═══════════════════════════════════════════════════════════════════════
 
   Widget _buildWeatherBanner() {
@@ -359,15 +466,12 @@ class _DashboardHomeState extends State<DashboardHome> {
             gradient: LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
-              colors: [
-                Colors.blue.shade600,
-                Colors.blue.shade400,
-              ],
+              colors: [secondaryColor, primaryColor],
             ),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                color: Colors.blue.withValues(alpha: 0.2),
+                color: primaryColor.withValues(alpha: 0.15),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -380,7 +484,7 @@ class _DashboardHomeState extends State<DashboardHome> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     _getWeatherIcon(state.condition),
@@ -495,7 +599,7 @@ class _DashboardHomeState extends State<DashboardHome> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // STATS RAPIDES - DESIGN MODERNE
+  // STATS RAPIDES
   // ═══════════════════════════════════════════════════════════════════════
 
   Widget _buildQuickStats() {
@@ -508,9 +612,9 @@ class _DashboardHomeState extends State<DashboardHome> {
         String assuranceStatus = 'En attente';
         String primeValue = '-- TND';
         String scoreValue = '--%';
-        Color assuranceColor = const Color(0xFF667eea);
-        Color primeColor = const Color(0xFF667eea);
-        Color scoreColor = const Color(0xFF667eea);
+        Color assuranceColor = primaryColor;
+        Color primeColor = primaryColor;
+        Color scoreColor = primaryColor;
 
         if (state is ProfileLoaded) {
           final profile = state.profile;
@@ -520,7 +624,7 @@ class _DashboardHomeState extends State<DashboardHome> {
           
           final monthlyPremium = profile['monthly_premium'] as double? ?? 0;
           primeValue = monthlyPremium > 0 ? '${monthlyPremium.toStringAsFixed(0)} TND' : '-- TND';
-          primeColor = monthlyPremium > 0 ? const Color(0xFF667eea) : Colors.grey;
+          primeColor = monthlyPremium > 0 ? primaryColor : Colors.grey;
           
           final riskScore = profile['risk_score'] as double? ?? 0;
           scoreValue = riskScore > 0 ? '${riskScore.toInt()}%' : '--%';
@@ -535,7 +639,6 @@ class _DashboardHomeState extends State<DashboardHome> {
                 label: 'Assurance',
                 value: assuranceStatus,
                 color: assuranceColor,
-                gradient: [assuranceColor.withValues(alpha: 0.1), Colors.white],
               ),
             ),
             const SizedBox(width: 8),
@@ -545,7 +648,6 @@ class _DashboardHomeState extends State<DashboardHome> {
                 label: 'Prime',
                 value: primeValue,
                 color: primeColor,
-                gradient: [primeColor.withValues(alpha: 0.1), Colors.white],
               ),
             ),
             const SizedBox(width: 8),
@@ -555,7 +657,6 @@ class _DashboardHomeState extends State<DashboardHome> {
                 label: 'Score',
                 value: scoreValue,
                 color: scoreColor,
-                gradient: [scoreColor.withValues(alpha: 0.1), Colors.white],
               ),
             ),
           ],
@@ -573,7 +674,7 @@ class _DashboardHomeState extends State<DashboardHome> {
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               boxShadow: _buildCardShadow(),
             ),
             child: Column(
@@ -614,19 +715,14 @@ class _DashboardHomeState extends State<DashboardHome> {
     required String label,
     required String value,
     required Color color,
-    required List<Color> gradient,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: gradient,
-        ),
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: color.withValues(alpha: 0.2),
+          color: Colors.grey.shade200,
           width: 1,
         ),
         boxShadow: _buildCardShadow(),
@@ -636,7 +732,7 @@ class _DashboardHomeState extends State<DashboardHome> {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
+              color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 18, color: color),
@@ -657,7 +753,7 @@ class _DashboardHomeState extends State<DashboardHome> {
             label,
             style: TextStyle(
               fontSize: 10,
-              color: Colors.grey[600],
+              color: Colors.grey[500],
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -673,69 +769,50 @@ class _DashboardHomeState extends State<DashboardHome> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // ASSISTANT PERSONAL WIDGET
-  // ═══════════════════════════════════════════════════════════════════════
-
-  Widget _buildAssistantWidget() {
-    return const AssistantPersonalWidget();
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // SMART CARDS - SERVICES INNOVANTS
+  // SMART CARDS - Assistant IA et Prévention
   // ═══════════════════════════════════════════════════════════════════════
 
   Widget _buildSmartCards() {
     final cards = [
       _SmartCardData(
-        icon: Icons.description_rounded,
-        title: 'Déclaration IA',
-        subtitle: 'Constat intelligent',
-        color: Colors.blue,
-        route: '/dashboard/declaration_chat',
-        gradient: [Colors.blue.shade400, Colors.blue.shade600],
-      ),
-      _SmartCardData(
         icon: Icons.chat_rounded,
         title: 'Assistant IA',
         subtitle: 'Conseils personnalisés',
-        color: Colors.purple,
-        route: '/dashboard/conseil_chat',
-        gradient: [Colors.purple.shade400, Colors.purple.shade600],
+        color: primaryColor,
+        route: '/assistant',
+        gradient: [primaryColor, secondaryColor],
       ),
       _SmartCardData(
         icon: Icons.shield_rounded,
         title: 'Prévention',
         subtitle: 'Alertes sécurité',
-        color: Colors.green,
+        color: accentColor,
         route: '/dashboard/prevention',
-        gradient: [Colors.green.shade400, Colors.green.shade600],
+        gradient: [accentColor, const Color(0xFF374151)],
       ),
     ];
 
-    return SizedBox(
-      height: 100,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: cards.length,
-        itemBuilder: (context, index) {
-          final card = cards[index];
-          return GestureDetector(
+    return Row(
+      children: cards.map((card) {
+        return Expanded(
+          child: GestureDetector(
             onTap: () => context.go(card.route),
             child: Container(
-              width: MediaQuery.of(context).size.width * 0.3,
-              margin: const EdgeInsets.only(right: 10),
-              padding: const EdgeInsets.all(12),
+              margin: EdgeInsets.only(
+                right: cards.indexOf(card) < cards.length - 1 ? 8 : 0,
+              ),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: card.gradient,
                 ),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: card.color.withValues(alpha: 0.3),
-                    blurRadius: 10,
+                    color: card.color.withValues(alpha: 0.25),
+                    blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
                 ],
@@ -744,39 +821,42 @@ class _DashboardHomeState extends State<DashboardHome> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(card.icon, color: Colors.white, size: 22),
+                    child: Icon(card.icon, color: Colors.white, size: 26),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 10),
                   Text(
                     card.title,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                      fontSize: 14,
                     ),
+                    textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     card.subtitle,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 9,
+                      fontSize: 11,
                     ),
+                    textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -794,7 +874,7 @@ class _DashboardHomeState extends State<DashboardHome> {
             value: state is ProfileLoaded 
                 ? (state.profile['vehicles_count'] as int? ?? 1).toString()
                 : '0',
-            color: const Color(0xFF667eea),
+            color: primaryColor,
           ),
           _ActivityData(
             icon: Icons.assignment_rounded,
@@ -802,7 +882,7 @@ class _DashboardHomeState extends State<DashboardHome> {
             value: state is ProfileLoaded
                 ? (state.profile['contracts_count'] as int? ?? 2).toString()
                 : '0',
-            color: Colors.green,
+            color: secondaryColor,
           ),
           _ActivityData(
             icon: Icons.notifications_rounded,
@@ -849,7 +929,7 @@ class _DashboardHomeState extends State<DashboardHome> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.grey[800],
+                        color: accentColor,
                       ),
                     ),
                     Text(
@@ -879,18 +959,18 @@ class _DashboardHomeState extends State<DashboardHome> {
         Container(
           padding: const EdgeInsets.all(5),
           decoration: BoxDecoration(
-            color: const Color(0xFF667eea).withValues(alpha: 0.1),
+            color: primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(6),
           ),
-          child: Icon(icon, size: 14, color: const Color(0xFF667eea)),
+          child: Icon(icon, size: 14, color: primaryColor),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
         Text(
           title,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: FontWeight.w600,
-            color: Colors.grey[800],
+            color: accentColor,
           ),
         ),
       ],
@@ -904,16 +984,16 @@ class _DashboardHomeState extends State<DashboardHome> {
   Widget _buildFooter() {
     return Column(
       children: [
-        const Divider(height: 24),
+        const Divider(height: 24, color: Colors.grey),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.shield_rounded,
               size: 16,
-              color: const Color(0xFF667eea).withValues(alpha: 0.5),
+              color: primaryColor.withValues(alpha: 0.5),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             Text(
               'AssurIA v2.0',
               style: TextStyle(
@@ -921,16 +1001,16 @@ class _DashboardHomeState extends State<DashboardHome> {
                 color: Colors.grey[500],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             Container(
-              width: 4,
-              height: 4,
+              width: 3,
+              height: 3,
               decoration: const BoxDecoration(
                 color: Colors.grey,
                 shape: BoxShape.circle,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             Text(
               'Intelligent • Sécurisé • Innovant',
               style: TextStyle(

@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+// lib/presentation/bloc/notifications/notifications_bloc.dart
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:ai_insurance_advisor/data/models/notification_model.dart';
 
 part 'notifications_event.dart';
 part 'notifications_state.dart';
@@ -8,8 +10,9 @@ part 'notifications_state.dart';
 class NotificationsBloc extends Bloc<NotificationsEvent, NotificationsState> {
   NotificationsBloc() : super(const NotificationsInitial()) {
     on<LoadNotificationsEvent>(_onLoadNotifications);
-    on<MarkNotificationReadEvent>(_onMarkRead);
-    on<ClearNotificationsEvent>(_onClearNotifications);
+    on<MarkNotificationAsReadEvent>(_onMarkNotificationAsRead);
+    on<MarkAllNotificationsAsReadEvent>(_onMarkAllNotificationsAsRead);
+    on<DeleteNotificationEvent>(_onDeleteNotification);
   }
 
   Future<void> _onLoadNotifications(
@@ -18,65 +21,114 @@ class NotificationsBloc extends Bloc<NotificationsEvent, NotificationsState> {
   ) async {
     emit(const NotificationsLoading());
     try {
-      // ✅ CORRIGÉ : Type explicite pour Future.delayed
-      await Future<void>.delayed(const Duration(seconds: 1));
+      // Simuler des données de notification
+      await Future.delayed(const Duration(milliseconds: 500));
       
       final notifications = [
-        {
-          'id': '1',
-          'icon': Icons.warning,
-          'color': Colors.orange,
-          'title': 'Entretien recommandé',
-          'message': 'Votre véhicule a parcouru 15 000 km',
-          'timestamp': DateTime.now().subtract(const Duration(hours: 2)),
-          'read': false,
-        },
-        {
-          'id': '2',
-          'icon': Icons.cloud,
-          'color': Colors.blue,
-          'title': 'Météo aujourd\'hui',
-          'message': '🌤️ 28°C - Beau temps',
-          'timestamp': DateTime.now().subtract(const Duration(hours: 5)),
-          'read': false,
-        },
-        {
-          'id': '3',
-          'icon': Icons.traffic,
-          'color': Colors.green,
-          'title': 'Circulation',
-          'message': '🟢 Trafic fluide sur l\'autoroute',
-          'timestamp': DateTime.now().subtract(const Duration(hours: 8)),
-          'read': true,
-        },
+        NotificationModel(
+          id: '1',
+          title: '🔔 Nouveau message',
+          message: 'Vous avez reçu un nouveau message de votre conseiller.',
+          type: 'info',
+          date: DateTime.now().subtract(const Duration(minutes: 5)),
+          isRead: false,
+        ),
+        NotificationModel(
+          id: '2',
+          title: '✅ Déclaration traitée',
+          message: 'Votre déclaration #1234 a été traitée avec succès.',
+          type: 'success',
+          date: DateTime.now().subtract(const Duration(hours: 2)),
+          isRead: false,
+        ),
+        NotificationModel(
+          id: '3',
+          title: '⚠️ Rappel',
+          message: 'N\'oubliez pas de renouveler votre assurance avant le 15/07/2026.',
+          type: 'warning',
+          date: DateTime.now().subtract(const Duration(days: 1)),
+          isRead: true,
+        ),
+        NotificationModel(
+          id: '4',
+          title: '📄 Document disponible',
+          message: 'Votre attestation d\'assurance est disponible en téléchargement.',
+          type: 'info',
+          date: DateTime.now().subtract(const Duration(days: 3)),
+          isRead: true,
+        ),
+        NotificationModel(
+          id: '5',
+          title: '🔒 Sécurité',
+          message: 'Une nouvelle connexion a été détectée sur votre compte.',
+          type: 'error',
+          date: DateTime.now().subtract(const Duration(days: 5)),
+          isRead: true,
+        ),
       ];
       
       emit(NotificationsLoaded(notifications));
     } catch (e) {
-      emit(NotificationsError(e.toString()));
+      emit(NotificationsError('Erreur lors du chargement des notifications: $e'));
     }
   }
 
-  void _onMarkRead(
-    MarkNotificationReadEvent event,
+  Future<void> _onMarkNotificationAsRead(
+    MarkNotificationAsReadEvent event,
     Emitter<NotificationsState> emit,
-  ) {
-    final currentState = state;
-    if (currentState is NotificationsLoaded) {
-      final updated = currentState.notifications.map((n) {
-        if (n['id'] == event.id) {
-          return {...n, 'read': true};
+  ) async {
+    if (state is NotificationsLoaded) {
+      final currentState = state as NotificationsLoaded;
+      final updatedNotifications = currentState.notifications.map((notification) {
+        if (notification.id == event.id) {
+          return NotificationModel(
+            id: notification.id,
+            title: notification.title,
+            message: notification.message,
+            type: notification.type,
+            date: notification.date,
+            isRead: true,
+          );
         }
-        return n;
+        return notification;
       }).toList();
-      emit(NotificationsLoaded(updated));
+      
+      emit(NotificationsLoaded(updatedNotifications));
     }
   }
 
-  void _onClearNotifications(
-    ClearNotificationsEvent event,
+  Future<void> _onMarkAllNotificationsAsRead(
+    MarkAllNotificationsAsReadEvent event,
     Emitter<NotificationsState> emit,
-  ) {
-    emit(const NotificationsLoaded([]));
+  ) async {
+    if (state is NotificationsLoaded) {
+      final currentState = state as NotificationsLoaded;
+      final updatedNotifications = currentState.notifications.map((notification) {
+        return NotificationModel(
+          id: notification.id,
+          title: notification.title,
+          message: notification.message,
+          type: notification.type,
+          date: notification.date,
+          isRead: true,
+        );
+      }).toList();
+      
+      emit(NotificationsLoaded(updatedNotifications));
+    }
+  }
+
+  Future<void> _onDeleteNotification(
+    DeleteNotificationEvent event,
+    Emitter<NotificationsState> emit,
+  ) async {
+    if (state is NotificationsLoaded) {
+      final currentState = state as NotificationsLoaded;
+      final updatedNotifications = currentState.notifications
+          .where((notification) => notification.id != event.id)
+          .toList();
+      
+      emit(NotificationsLoaded(updatedNotifications));
+    }
   }
 }
